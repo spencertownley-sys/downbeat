@@ -8,9 +8,10 @@ export const dynamic = "force-dynamic";
 export default async function AvailabilityPage({
   params,
 }: {
-  params: { slug: string; token: string };
+  params: Promise<{ slug: string; token: string }>;
 }) {
-  const context = await getMemberByToken(params.slug, params.token);
+  const { slug, token } = await params;
+  const context = await getMemberByToken(slug, token);
   if (!context) notFound();
 
   return (
@@ -29,7 +30,7 @@ export default async function AvailabilityPage({
         <p className="mt-1 text-muted-foreground">
           Tap the squares below for how your week usually looks. Changes save automatically.
         </p>
-        <AvailabilityEditor slug={params.slug} token={params.token} member={context.member} />
+        <AvailabilityEditor slug={slug} token={token} member={context.member} />
       </main>
     </div>
   );

@@ -9,11 +9,12 @@ import { STATUS_META, type AvailabilityStatus } from "@/lib/constants";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
-export default async function BandDetailPage({ params }: { params: { bandId: string } }) {
+export default async function BandDetailPage({ params }: { params: Promise<{ bandId: string }> }) {
+  const { bandId } = await params;
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
 
-  const band = await getBandForLeader(params.bandId, profile.id);
+  const band = await getBandForLeader(bandId, profile.id);
   if (!band) notFound();
 
   const today = new Date().toISOString().slice(0, 10);

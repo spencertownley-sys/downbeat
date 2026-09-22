@@ -6,8 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 
 export const dynamic = "force-dynamic";
 
-export default async function JoinPage({ params }: { params: { slug: string } }) {
-  const band = await getBandBySlug(params.slug);
+export default async function JoinPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const band = await getBandBySlug(slug);
   if (!band) notFound();
 
   return (
@@ -21,7 +22,7 @@ export default async function JoinPage({ params }: { params: { slug: string } })
           <CardDescription>What&apos;s your name? We&apos;ll remember you next time.</CardDescription>
         </CardHeader>
         <CardContent>
-          <JoinForm slug={params.slug} />
+          <JoinForm slug={slug} />
         </CardContent>
       </Card>
     </div>
