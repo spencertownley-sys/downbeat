@@ -4,6 +4,12 @@ import { availabilityExceptions, availabilityWeekly, bandMembers, bands, profile
 import { generateSlug } from "@/lib/slug";
 
 async function main() {
+  const [existingBand] = await db.select({ id: bands.id }).from(bands).limit(1);
+  if (existingBand) {
+    console.log("Demo data already present — skipping seed.");
+    return;
+  }
+
   console.log("Seeding Downbeat demo data…");
 
   const [leader] = await db
