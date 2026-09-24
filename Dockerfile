@@ -1,3 +1,4 @@
+# cache-bust: force fresh deploy + pre-deploy run
 FROM node:20-alpine
 
 WORKDIR /app
