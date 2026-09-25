@@ -3,7 +3,7 @@ import { getCurrentProfile } from "@/lib/supabase/server";
 import { getBandForLeader } from "@/db/queries/bands";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AggregateGrid } from "@/components/availability/AggregateGrid";
-import { CopyLinkButton } from "@/components/dashboard/CopyLinkButton";
+import { CopyLinkButton } from "@/components/shared/CopyLinkButton";
 import { ScheduleSettingsDialog } from "@/components/dashboard/ScheduleSettingsDialog";
 import { Legend } from "@/components/availability/WeeklyGrid";
 import { STATUS_META, type AvailabilityStatus } from "@/lib/constants";
@@ -53,7 +53,7 @@ export default async function BandDetailPage({ params }: { params: Promise<{ ban
           <CardTitle className="text-base">Invite link</CardTitle>
         </CardHeader>
         <CardContent>
-          <CopyLinkButton slug={band.slug} />
+          <CopyLinkButton path={`/join/${band.slug}`} />
           <p className="mt-2 text-sm text-muted-foreground">
             Send this to your bandmates. They&apos;ll enter their name and mark their availability
             — no account needed.

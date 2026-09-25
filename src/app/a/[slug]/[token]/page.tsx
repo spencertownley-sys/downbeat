@@ -1,7 +1,10 @@
-import { notFound } from "next/navigation";
+import Link from "next/link";
 import { getMemberByToken } from "@/db/queries/members";
+import { getBandBySlug } from "@/db/queries/bands";
 import { Logo } from "@/components/brand/Logo";
 import { AvailabilityEditor } from "@/components/availability/AvailabilityEditor";
+import { PersonalLinkCard } from "@/components/availability/PersonalLinkCard";
+import { Button } from "@/components/ui/button";
 import { describeEvent, describeSchedule } from "@/lib/band-settings";
 import { MapPin } from "lucide-react";
 
@@ -14,7 +17,31 @@ export default async function AvailabilityPage({
 }) {
   const { slug, token } = await params;
   const context = await getMemberByToken(slug, token);
-  if (!context) notFound();
+
+  if (!context) {
+    // The token doesn't match anything — a stale/mistyped link. Point them
+    // back at the join page rather than a dead-end 404; entering the same
+    // name there reconnects them to their existing availability.
+    const band = await getBandBySlug(slug);
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background p-8 text-center">
+        <Logo />
+        <div className="max-w-sm space-y-2">
+          <p className="font-semibold">That link doesn&apos;t work anymore</p>
+          <p className="text-sm text-muted-foreground">
+            {band
+              ? "Enter your name again on the join page and we'll take you right back to your availability."
+              : "This band's link may have changed. Ask whoever invited you for a fresh one."}
+          </p>
+        </div>
+        {band && (
+          <Button asChild>
+            <Link href={`/join/${slug}`}>Go to {band.name}</Link>
+          </Button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -42,6 +69,11 @@ export default async function AvailabilityPage({
           {context.bandName} is checking:{" "}
           <span className="font-medium text-foreground">{describeSchedule(context)}</span>
         </p>
+
+        <div className="mt-8">
+          <PersonalLinkCard slug={slug} token={token} name={context.member.name} />
+        </div>
+
         <AvailabilityEditor
           slug={slug}
           token={token}
