@@ -68,9 +68,19 @@ export default async function BandDetailPage({ params }: { params: Promise<{ ban
             ) : (
               <ul className="space-y-3">
                 {band.members.map((member) => (
-                  <li key={member.id} className="flex items-center justify-between">
-                    <span className="font-medium">{member.name}</span>
-                    <span className="text-xs text-muted-foreground">
+                  <li key={member.id} className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-medium">
+                        {member.name}
+                        {member.instrument && (
+                          <span className="font-normal text-muted-foreground"> — {member.instrument}</span>
+                        )}
+                      </p>
+                      {member.contact && (
+                        <p className="text-xs text-muted-foreground">{member.contact}</p>
+                      )}
+                    </div>
+                    <span className="shrink-0 text-xs text-muted-foreground">
                       Last updated {format(new Date(member.lastSeenAt ?? member.createdAt!), "MMM d")}
                     </span>
                   </li>

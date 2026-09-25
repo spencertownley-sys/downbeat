@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { WeeklyGrid } from "@/components/availability/WeeklyGrid";
 import { ExceptionsEditor } from "@/components/availability/ExceptionsEditor";
+import { ProfileEditor } from "@/components/availability/ProfileEditor";
 import { setExceptionStatus, setWeeklyStatus, removeException } from "@/app/actions/availability";
 import { useToast } from "@/components/ui/use-toast";
 import type { AvailabilityStatus, MemberWithAvailability } from "@/types";
@@ -59,6 +60,20 @@ export function AvailabilityEditor({
 
   return (
     <div className="mt-8 space-y-10">
+      <section className="rounded-xl border bg-card p-4 sm:p-6">
+        <h2 className="mb-1 font-semibold">Your info</h2>
+        <p className="mb-4 text-sm text-muted-foreground">
+          Just for your bandmates — no account needed.
+        </p>
+        <ProfileEditor
+          slug={slug}
+          token={token}
+          name={member.name}
+          instrument={member.instrument}
+          contact={member.contact}
+        />
+      </section>
+
       <section className="rounded-xl border bg-card p-4 sm:p-6">
         <h2 className="mb-4 font-semibold">Your typical week</h2>
         <WeeklyGrid grid={member.weeklyGrid} onCellChange={handleCellChange} />

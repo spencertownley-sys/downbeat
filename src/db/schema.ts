@@ -56,6 +56,7 @@ export const bandMembers = pgTable(
       .references(() => bands.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     instrument: text("instrument"),
+    contact: text("contact"),
     memberToken: uuid("member_token").notNull().default(sql`gen_random_uuid()`).unique(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).defaultNow(),

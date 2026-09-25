@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label";
 export function JoinForm({ slug }: { slug: string }) {
   const router = useRouter();
   const [name, setName] = useState("");
+  const [instrument, setInstrument] = useState("");
+  const [contact, setContact] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -17,7 +19,7 @@ export function JoinForm({ slug }: { slug: string }) {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const result = await joinBand(slug, name);
+    const result = await joinBand(slug, name, instrument, contact);
     setLoading(false);
     if (!result.ok || !result.data) {
       setError(!result.ok ? result.error : "Something went wrong. Please try again.");
@@ -42,6 +44,28 @@ export function JoinForm({ slug }: { slug: string }) {
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Alex"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="instrument">
+          Role / instrument <span className="font-normal text-muted-foreground">(optional)</span>
+        </Label>
+        <Input
+          id="instrument"
+          value={instrument}
+          onChange={(e) => setInstrument(e.target.value)}
+          placeholder="Guitar, vocals, manager…"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="contact">
+          Phone or email <span className="font-normal text-muted-foreground">(optional)</span>
+        </Label>
+        <Input
+          id="contact"
+          value={contact}
+          onChange={(e) => setContact(e.target.value)}
+          placeholder="So the band can reach you"
         />
       </div>
       {error && <p className="text-sm text-destructive">{error}</p>}
