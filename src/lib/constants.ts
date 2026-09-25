@@ -15,7 +15,10 @@ export const TIME_BLOCKS = [
   { value: "night", label: "Night", hint: "9pm – late" },
 ] as const;
 
-export type TimeBlock = (typeof TIME_BLOCKS)[number]["value"];
+/** Used in place of TIME_BLOCKS when a band leader turns time-of-day off. */
+export const ALL_DAY_BLOCK = { value: "allday", label: "All day", hint: "" } as const;
+
+export type TimeBlock = (typeof TIME_BLOCKS)[number]["value"] | typeof ALL_DAY_BLOCK.value;
 
 export const AVAILABILITY_STATUSES = ["available", "maybe", "unavailable"] as const;
 export type AvailabilityStatus = (typeof AVAILABILITY_STATUSES)[number];

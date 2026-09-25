@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getMemberByToken } from "@/db/queries/members";
 import { Logo } from "@/components/brand/Logo";
 import { AvailabilityEditor } from "@/components/availability/AvailabilityEditor";
+import { describeSchedule } from "@/lib/band-settings";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,20 @@ export default async function AvailabilityPage({
         <p className="mt-1 text-muted-foreground">
           Tap the squares below for how your week usually looks. Changes save automatically.
         </p>
-        <AvailabilityEditor slug={slug} token={token} member={context.member} />
+        <p className="mt-1 text-sm text-muted-foreground">
+          {context.bandName} is checking:{" "}
+          <span className="font-medium text-foreground">{describeSchedule(context)}</span>
+        </p>
+        <AvailabilityEditor
+          slug={slug}
+          token={token}
+          member={context.member}
+          activeDays={context.activeDays}
+          useTimeBlocks={context.useTimeBlocks}
+          activeTimeBlocks={context.activeTimeBlocks}
+          startDate={context.startDate}
+          endDate={context.endDate}
+        />
       </main>
     </div>
   );

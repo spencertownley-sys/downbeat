@@ -1,5 +1,5 @@
 import { DAYS_OF_WEEK, TIME_BLOCKS } from "@/lib/constants";
-import type { AggregateGrid as AggregateGridType } from "@/types";
+import type { AggregateGrid as AggregateGridType, TimeBlock } from "@/types";
 import { cn } from "@/lib/utils";
 
 /** Heat intensity: share of the band that's fully available in that slot. */
@@ -12,7 +12,17 @@ function heatClass(pctAvailable: number, total: number): string {
   return "bg-primary text-primary-foreground";
 }
 
-export function AggregateGrid({ grid, memberCount }: { grid: AggregateGridType; memberCount: number }) {
+export function AggregateGrid({
+  grid,
+  memberCount,
+  days = DAYS_OF_WEEK,
+  timeBlocks = TIME_BLOCKS,
+}: {
+  grid: AggregateGridType;
+  memberCount: number;
+  days?: readonly { value: number; label: string; short: string }[];
+  timeBlocks?: readonly { value: string; label: string; hint: string }[];
+}) {
   if (memberCount === 0) {
     return (
       <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
@@ -24,20 +34,23 @@ export function AggregateGrid({ grid, memberCount }: { grid: AggregateGridType; 
   return (
     <div className="overflow-x-auto">
       <div className="min-w-[640px]">
-        <div className="grid grid-cols-[80px_repeat(7,1fr)] gap-1.5">
+        <div
+          className="grid gap-1.5"
+          style={{ gridTemplateColumns: `80px repeat(${days.length}, 1fr)` }}
+        >
           <div />
-          {DAYS_OF_WEEK.map((day) => (
+          {days.map((day) => (
             <div key={day.value} className="pb-1 text-center text-xs font-medium text-muted-foreground">
               {day.short}
             </div>
           ))}
-          {TIME_BLOCKS.map((block) => (
+          {timeBlocks.map((block) => (
             <div key={block.value} className="contents">
               <div className="flex flex-col justify-center pr-2 text-right text-xs font-medium text-muted-foreground">
                 {block.label}
               </div>
-              {DAYS_OF_WEEK.map((day) => {
-                const counts = grid[day.value]?.[block.value];
+              {days.map((day) => {
+                const counts = grid[day.value]?.[block.value as TimeBlock];
                 const total = counts?.total ?? 0;
                 const available = counts?.available ?? 0;
                 const maybe = counts?.maybe ?? 0;

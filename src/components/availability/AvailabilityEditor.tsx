@@ -1,24 +1,41 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { WeeklyGrid } from "@/components/availability/WeeklyGrid";
 import { ExceptionsEditor } from "@/components/availability/ExceptionsEditor";
 import { ProfileEditor } from "@/components/availability/ProfileEditor";
 import { setExceptionStatus, setWeeklyStatus, removeException } from "@/app/actions/availability";
 import { useToast } from "@/components/ui/use-toast";
+import { getActiveDays, getActiveTimeBlocks } from "@/lib/band-settings";
 import type { AvailabilityStatus, MemberWithAvailability } from "@/types";
 
 export function AvailabilityEditor({
   slug,
   token,
   member,
+  activeDays,
+  useTimeBlocks,
+  activeTimeBlocks,
+  startDate,
+  endDate,
 }: {
   slug: string;
   token: string;
   member: MemberWithAvailability;
+  activeDays: number[];
+  useTimeBlocks: boolean;
+  activeTimeBlocks: string[];
+  startDate: string | null;
+  endDate: string | null;
 }) {
   const { toast } = useToast();
   const [exceptions, setExceptions] = useState(member.exceptions);
+
+  const days = useMemo(() => getActiveDays({ activeDays }), [activeDays]);
+  const timeBlocks = useMemo(
+    () => getActiveTimeBlocks({ useTimeBlocks, activeTimeBlocks }),
+    [useTimeBlocks, activeTimeBlocks]
+  );
 
   async function handleCellChange(dayOfWeek: number, timeBlock: string, status: AvailabilityStatus) {
     const result = await setWeeklyStatus(slug, token, dayOfWeek, timeBlock, status);
@@ -76,7 +93,12 @@ export function AvailabilityEditor({
 
       <section className="rounded-xl border bg-card p-4 sm:p-6">
         <h2 className="mb-4 font-semibold">Your typical week</h2>
-        <WeeklyGrid grid={member.weeklyGrid} onCellChange={handleCellChange} />
+        <WeeklyGrid
+          grid={member.weeklyGrid}
+          onCellChange={handleCellChange}
+          days={days}
+          timeBlocks={timeBlocks}
+        />
       </section>
 
       <section className="rounded-xl border bg-card p-4 sm:p-6">
@@ -88,6 +110,8 @@ export function AvailabilityEditor({
           exceptions={exceptions}
           onSave={handleSaveException}
           onRemove={handleRemoveException}
+          minDate={startDate}
+          maxDate={endDate}
         />
       </section>
     </div>

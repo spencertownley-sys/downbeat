@@ -7,6 +7,7 @@ import { and, eq } from "drizzle-orm";
 import { generateSlug } from "@/lib/slug";
 import { requireProfile, toActionError } from "./helpers";
 import { ValidationError, type ActionResult } from "@/lib/action-errors";
+import { ALL_DAY_BLOCK, TIME_BLOCKS } from "@/lib/constants";
 import type { Band } from "@/types";
 
 export async function createBand(name: string): Promise<ActionResult<Band>> {
@@ -50,6 +51,54 @@ export async function renameBand(bandId: string, name: string): Promise<ActionRe
     if (!updated) throw new ValidationError("Band not found.");
 
     revalidatePath("/dashboard");
+    revalidatePath(`/dashboard/bands/${bandId}`);
+    return { ok: true };
+  } catch (err) {
+    return toActionError(err);
+  }
+}
+
+export interface BandScheduleInput {
+  activeDays: number[];
+  useTimeBlocks: boolean;
+  activeTimeBlocks: string[];
+  startDate: string | null;
+  endDate: string | null;
+}
+
+export async function updateBandSchedule(
+  bandId: string,
+  input: BandScheduleInput
+): Promise<ActionResult> {
+  try {
+    const profile = await requireProfile();
+
+    const activeDays = [...new Set(input.activeDays)].filter((d) => d >= 0 && d <= 6);
+    if (activeDays.length === 0) throw new ValidationError("Pick at least one day.");
+
+    const validBlocks = new Set<string>(TIME_BLOCKS.map((b) => b.value));
+    const activeTimeBlocks = [...new Set(input.activeTimeBlocks)].filter((b) => validBlocks.has(b));
+    if (input.useTimeBlocks && activeTimeBlocks.length === 0) {
+      throw new ValidationError("Pick at least one time of day.");
+    }
+
+    if (input.startDate && input.endDate && input.startDate > input.endDate) {
+      throw new ValidationError("The start date is after the end date.");
+    }
+
+    const [updated] = await db
+      .update(bands)
+      .set({
+        activeDays,
+        useTimeBlocks: input.useTimeBlocks,
+        activeTimeBlocks: input.useTimeBlocks ? activeTimeBlocks : [ALL_DAY_BLOCK.value],
+        startDate: input.startDate || null,
+        endDate: input.endDate || null,
+      })
+      .where(and(eq(bands.id, bandId), eq(bands.leaderId, profile.id)))
+      .returning();
+    if (!updated) throw new ValidationError("Band not found.");
+
     revalidatePath(`/dashboard/bands/${bandId}`);
     return { ok: true };
   } catch (err) {

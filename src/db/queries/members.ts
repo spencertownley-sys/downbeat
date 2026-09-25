@@ -12,7 +12,16 @@ import type { MemberWithAvailability, WeeklyGrid } from "@/types";
 export async function getMemberByToken(
   slug: string,
   token: string
-): Promise<{ bandName: string; bandId: string; member: MemberWithAvailability } | null> {
+): Promise<{
+  bandName: string;
+  bandId: string;
+  activeDays: number[];
+  useTimeBlocks: boolean;
+  activeTimeBlocks: string[];
+  startDate: string | null;
+  endDate: string | null;
+  member: MemberWithAvailability;
+} | null> {
   const band = await db.query.bands.findFirst({ where: eq(bands.slug, slug) });
   if (!band) return null;
 
@@ -31,6 +40,11 @@ export async function getMemberByToken(
   return {
     bandName: band.name,
     bandId: band.id,
+    activeDays: band.activeDays,
+    useTimeBlocks: band.useTimeBlocks,
+    activeTimeBlocks: band.activeTimeBlocks,
+    startDate: band.startDate,
+    endDate: band.endDate,
     member: {
       ...member,
       weeklyGrid,

@@ -3,6 +3,7 @@ import {
   uuid,
   text,
   integer,
+  boolean,
   date,
   timestamp,
   index,
@@ -35,6 +36,21 @@ export const bands = pgTable(
     leaderId: uuid("leader_id")
       .notNull()
       .references(() => profiles.id, { onDelete: "cascade" }),
+
+    // What the leader wants the band to weigh in on — narrows the grid
+    // everyone sees and fills in.
+    activeDays: integer("active_days")
+      .array()
+      .notNull()
+      .default(sql`'{0,1,2,3,4,5,6}'`), // 0 = Sunday .. 6 = Saturday
+    useTimeBlocks: boolean("use_time_blocks").notNull().default(true),
+    activeTimeBlocks: text("active_time_blocks")
+      .array()
+      .notNull()
+      .default(sql`'{morning,afternoon,evening,night}'`),
+    startDate: date("start_date"),
+    endDate: date("end_date"),
+
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   },
   (table) => ({

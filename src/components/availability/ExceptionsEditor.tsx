@@ -19,10 +19,14 @@ export function ExceptionsEditor({
   exceptions,
   onSave,
   onRemove,
+  minDate,
+  maxDate,
 }: {
   exceptions: AvailabilityException[];
   onSave: (date: string, status: AvailabilityStatus, note?: string) => Promise<unknown>;
   onRemove: (date: string) => Promise<unknown>;
+  minDate?: string | null;
+  maxDate?: string | null;
 }) {
   const [date, setDate] = useState<Date | undefined>();
   const [status, setStatus] = useState<AvailabilityStatus>("unavailable");
@@ -51,7 +55,14 @@ export function ExceptionsEditor({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto space-y-3 p-3" align="start">
-          <Calendar mode="single" selected={date} onSelect={setDate} className="rounded-md border" />
+          <Calendar
+            mode="single"
+            selected={date}
+            onSelect={setDate}
+            className="rounded-md border"
+            fromDate={minDate ? new Date(`${minDate}T00:00:00`) : undefined}
+            toDate={maxDate ? new Date(`${maxDate}T00:00:00`) : undefined}
+          />
           <div className="flex gap-1.5">
             {AVAILABILITY_STATUSES.map((s) => (
               <button

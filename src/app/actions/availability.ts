@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { availabilityExceptions, availabilityWeekly, bandMembers, bands } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
-import { AVAILABILITY_STATUSES, TIME_BLOCKS, type AvailabilityStatus } from "@/lib/constants";
+import { ALL_DAY_BLOCK, AVAILABILITY_STATUSES, TIME_BLOCKS, type AvailabilityStatus } from "@/lib/constants";
 import { toActionError } from "./helpers";
 import { ValidationError, type ActionResult } from "@/lib/action-errors";
 
@@ -15,7 +15,7 @@ async function requireMember(slug: string, token: string) {
     where: and(eq(bandMembers.memberToken, token), eq(bandMembers.bandId, band.id)),
   });
   if (!member) throw new ValidationError("That link doesn't look right.");
-  return member;
+  return { member, band };
 }
 
 function assertStatus(status: string): asserts status is AvailabilityStatus {
@@ -32,9 +32,9 @@ export async function setWeeklyStatus(
   status: string
 ): Promise<ActionResult> {
   try {
-    const member = await requireMember(slug, token);
+    const { member } = await requireMember(slug, token);
     if (dayOfWeek < 0 || dayOfWeek > 6) throw new ValidationError("Invalid day.");
-    if (!TIME_BLOCKS.some((b) => b.value === timeBlock)) {
+    if (timeBlock !== ALL_DAY_BLOCK.value && !TIME_BLOCKS.some((b) => b.value === timeBlock)) {
       throw new ValidationError("Invalid time block.");
     }
     assertStatus(status);
@@ -62,8 +62,14 @@ export async function setExceptionStatus(
   note?: string
 ): Promise<ActionResult> {
   try {
-    const member = await requireMember(slug, token);
+    const { member, band } = await requireMember(slug, token);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new ValidationError("Invalid date.");
+    if (band.startDate && date < band.startDate) {
+      throw new ValidationError("That date is before the band's review window.");
+    }
+    if (band.endDate && date > band.endDate) {
+      throw new ValidationError("That date is after the band's review window.");
+    }
     assertStatus(status);
 
     await db
@@ -87,7 +93,7 @@ export async function removeException(
   date: string
 ): Promise<ActionResult> {
   try {
-    const member = await requireMember(slug, token);
+    const { member } = await requireMember(slug, token);
     await db
       .delete(availabilityExceptions)
       .where(

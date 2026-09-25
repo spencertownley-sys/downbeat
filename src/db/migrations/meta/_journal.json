@@ -15,6 +15,13 @@
       "when": 1790316139653,
       "tag": "0001_add_member_contact",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790319188262,
+      "tag": "0002_add_band_settings",
+      "breakpoints": true
     }
   ]
 }

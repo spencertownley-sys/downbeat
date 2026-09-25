@@ -4,8 +4,10 @@ import { getBandForLeader } from "@/db/queries/bands";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AggregateGrid } from "@/components/availability/AggregateGrid";
 import { CopyLinkButton } from "@/components/dashboard/CopyLinkButton";
+import { ScheduleSettingsDialog } from "@/components/dashboard/ScheduleSettingsDialog";
 import { Legend } from "@/components/availability/WeeklyGrid";
 import { STATUS_META, type AvailabilityStatus } from "@/lib/constants";
+import { describeSchedule, getActiveDays, getActiveTimeBlocks } from "@/lib/band-settings";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -24,13 +26,19 @@ export default async function BandDetailPage({ params }: { params: Promise<{ ban
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(0, 12);
 
+  const days = getActiveDays(band);
+  const timeBlocks = getActiveTimeBlocks(band);
+
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{band.name}</h1>
-        <p className="mt-1 text-muted-foreground">
-          {band.members.length} member{band.members.length === 1 ? "" : "s"}
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">{band.name}</h1>
+          <p className="mt-1 text-muted-foreground">
+            {band.members.length} member{band.members.length === 1 ? "" : "s"}
+          </p>
+        </div>
+        <ScheduleSettingsDialog band={band} />
       </div>
 
       <Card>
@@ -49,9 +57,17 @@ export default async function BandDetailPage({ params }: { params: Promise<{ ban
       <Card>
         <CardHeader>
           <CardTitle className="text-base">When the band overlaps</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Currently checking: <span className="font-medium text-foreground">{describeSchedule(band)}</span>
+          </p>
         </CardHeader>
         <CardContent>
-          <AggregateGrid grid={band.aggregate} memberCount={band.members.length} />
+          <AggregateGrid
+            grid={band.aggregate}
+            memberCount={band.members.length}
+            days={days}
+            timeBlocks={timeBlocks}
+          />
         </CardContent>
       </Card>
 

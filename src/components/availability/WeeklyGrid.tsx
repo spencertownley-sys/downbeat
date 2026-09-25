@@ -2,15 +2,19 @@
 
 import { useState, useTransition } from "react";
 import { DAYS_OF_WEEK, STATUS_CYCLE, STATUS_META, TIME_BLOCKS } from "@/lib/constants";
-import type { AvailabilityStatus, WeeklyGrid as WeeklyGridType } from "@/types";
+import type { AvailabilityStatus, TimeBlock, WeeklyGrid as WeeklyGridType } from "@/types";
 import { cn } from "@/lib/utils";
 
 export function WeeklyGrid({
   grid,
   onCellChange,
+  days = DAYS_OF_WEEK,
+  timeBlocks = TIME_BLOCKS,
 }: {
   grid: WeeklyGridType;
   onCellChange: (dayOfWeek: number, timeBlock: string, status: AvailabilityStatus) => Promise<unknown>;
+  days?: readonly { value: number; label: string; short: string }[];
+  timeBlocks?: readonly { value: string; label: string; hint: string }[];
 }) {
   const [optimistic, setOptimistic] = useState<WeeklyGridType>(grid);
   const [, startTransition] = useTransition();
@@ -31,21 +35,24 @@ export function WeeklyGrid({
   return (
     <div className="overflow-x-auto">
       <div className="min-w-[640px]">
-        <div className="grid grid-cols-[80px_repeat(7,1fr)] gap-1.5">
+        <div
+          className="grid gap-1.5"
+          style={{ gridTemplateColumns: `80px repeat(${days.length}, 1fr)` }}
+        >
           <div />
-          {DAYS_OF_WEEK.map((day) => (
+          {days.map((day) => (
             <div key={day.value} className="pb-1 text-center text-xs font-medium text-muted-foreground">
               {day.short}
             </div>
           ))}
-          {TIME_BLOCKS.map((block) => (
+          {timeBlocks.map((block) => (
             <div key={block.value} className="contents">
               <div className="flex flex-col justify-center pr-2 text-right text-xs font-medium text-muted-foreground">
                 {block.label}
               </div>
-              {DAYS_OF_WEEK.map((day) => {
+              {days.map((day) => {
                 const status: AvailabilityStatus =
-                  optimistic[day.value]?.[block.value] ?? "unavailable";
+                  optimistic[day.value]?.[block.value as TimeBlock] ?? "unavailable";
                 const meta = STATUS_META[status];
                 return (
                   <button
