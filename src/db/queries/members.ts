@@ -20,6 +20,8 @@ export async function getMemberByToken(
   activeTimeBlocks: string[];
   startDate: string | null;
   endDate: string | null;
+  eventLabel: string | null;
+  venue: string | null;
   member: MemberWithAvailability;
 } | null> {
   const band = await db.query.bands.findFirst({ where: eq(bands.slug, slug) });
@@ -45,6 +47,8 @@ export async function getMemberByToken(
     activeTimeBlocks: band.activeTimeBlocks,
     startDate: band.startDate,
     endDate: band.endDate,
+    eventLabel: band.eventLabel,
+    venue: band.venue,
     member: {
       ...member,
       weeklyGrid,

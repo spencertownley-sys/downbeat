@@ -35,12 +35,15 @@ export interface MemberWithAvailability extends BandMember {
   exceptions: AvailabilityException[];
 }
 
-/** aggregateGrid[dayOfWeek][timeBlock] = counts across all members. */
+/** aggregateGrid[dayOfWeek][timeBlock] = counts + who's in each bucket. */
 export interface SlotCounts {
   available: number;
   maybe: number;
   unavailable: number;
   total: number;
+  availableNames: string[];
+  maybeNames: string[];
+  unavailableNames: string[];
 }
 export type AggregateGrid = Record<number, Partial<Record<TimeBlock, SlotCounts>>>;
 

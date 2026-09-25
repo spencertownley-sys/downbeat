@@ -64,6 +64,15 @@ export interface BandScheduleInput {
   activeTimeBlocks: string[];
   startDate: string | null;
   endDate: string | null;
+  eventLabel: string | null;
+  venue: string | null;
+}
+
+function cleanLabel(value: string | null, maxLen: number): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  if (trimmed.length > maxLen) throw new ValidationError("That's a little long — try trimming it down.");
+  return trimmed;
 }
 
 export async function updateBandSchedule(
@@ -86,6 +95,9 @@ export async function updateBandSchedule(
       throw new ValidationError("The start date is after the end date.");
     }
 
+    const eventLabel = cleanLabel(input.eventLabel, 80);
+    const venue = cleanLabel(input.venue, 100);
+
     const [updated] = await db
       .update(bands)
       .set({
@@ -94,6 +106,8 @@ export async function updateBandSchedule(
         activeTimeBlocks: input.useTimeBlocks ? activeTimeBlocks : [ALL_DAY_BLOCK.value],
         startDate: input.startDate || null,
         endDate: input.endDate || null,
+        eventLabel,
+        venue,
       })
       .where(and(eq(bands.id, bandId), eq(bands.leaderId, profile.id)))
       .returning();

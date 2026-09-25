@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import { getMemberByToken } from "@/db/queries/members";
 import { Logo } from "@/components/brand/Logo";
 import { AvailabilityEditor } from "@/components/availability/AvailabilityEditor";
-import { describeSchedule } from "@/lib/band-settings";
+import { describeEvent, describeSchedule } from "@/lib/band-settings";
+import { MapPin } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,13 @@ export default async function AvailabilityPage({
         <p className="mt-1 text-muted-foreground">
           Tap the squares below for how your week usually looks. Changes save automatically.
         </p>
-        <p className="mt-1 text-sm text-muted-foreground">
+        {describeEvent(context) && (
+          <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-accent px-3 py-1 text-sm font-medium text-accent-foreground">
+            <MapPin className="h-3.5 w-3.5" />
+            {describeEvent(context)}
+          </p>
+        )}
+        <p className="mt-2 text-sm text-muted-foreground">
           {context.bandName} is checking:{" "}
           <span className="font-medium text-foreground">{describeSchedule(context)}</span>
         </p>

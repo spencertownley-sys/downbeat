@@ -3,6 +3,7 @@ import { getBandBySlug } from "@/db/queries/bands";
 import { JoinForm } from "@/components/join/JoinForm";
 import { Logo } from "@/components/brand/Logo";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { describeEvent } from "@/lib/band-settings";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,9 @@ export default async function JoinPage({ params }: { params: Promise<{ slug: str
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <CardTitle className="text-xl">{band.name}</CardTitle>
+          {describeEvent(band) && (
+            <p className="text-sm font-medium text-primary">{describeEvent(band)}</p>
+          )}
           <CardDescription>What&apos;s your name? We&apos;ll remember you next time.</CardDescription>
         </CardHeader>
         <CardContent>

@@ -28,6 +28,8 @@ export function ScheduleSettingsDialog({ band }: { band: Band }) {
   const [activeTimeBlocks, setActiveTimeBlocks] = useState<string[]>(band.activeTimeBlocks);
   const [startDate, setStartDate] = useState(band.startDate ?? "");
   const [endDate, setEndDate] = useState(band.endDate ?? "");
+  const [eventLabel, setEventLabel] = useState(band.eventLabel ?? "");
+  const [venue, setVenue] = useState(band.venue ?? "");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -53,6 +55,8 @@ export function ScheduleSettingsDialog({ band }: { band: Band }) {
       activeTimeBlocks,
       startDate: startDate || null,
       endDate: endDate || null,
+      eventLabel: eventLabel || null,
+      venue: venue || null,
     });
     setSaving(false);
     if (!result.ok) {
@@ -82,6 +86,33 @@ export function ScheduleSettingsDialog({ band }: { band: Band }) {
           </DialogHeader>
 
           <div className="space-y-6 py-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="event-label">
+                  Label <span className="font-normal text-muted-foreground">(optional)</span>
+                </Label>
+                <Input
+                  id="event-label"
+                  value={eventLabel}
+                  onChange={(e) => setEventLabel(e.target.value)}
+                  placeholder="Band Practice, Gig…"
+                  maxLength={80}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="venue">
+                  Venue <span className="font-normal text-muted-foreground">(optional)</span>
+                </Label>
+                <Input
+                  id="venue"
+                  value={venue}
+                  onChange={(e) => setVenue(e.target.value)}
+                  placeholder="The Attic"
+                  maxLength={100}
+                />
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label>Days of the week</Label>
               <div className="flex flex-wrap gap-1.5">

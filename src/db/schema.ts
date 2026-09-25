@@ -51,6 +51,12 @@ export const bands = pgTable(
     startDate: date("start_date"),
     endDate: date("end_date"),
 
+    // What this round of availability-checking is actually for, shown to
+    // both the leader and the band — e.g. "Band Practice" or
+    // "Gig at The Attic".
+    eventLabel: text("event_label"),
+    venue: text("venue"),
+
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   },
   (table) => ({

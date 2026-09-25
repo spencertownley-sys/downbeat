@@ -7,7 +7,8 @@ import { CopyLinkButton } from "@/components/dashboard/CopyLinkButton";
 import { ScheduleSettingsDialog } from "@/components/dashboard/ScheduleSettingsDialog";
 import { Legend } from "@/components/availability/WeeklyGrid";
 import { STATUS_META, type AvailabilityStatus } from "@/lib/constants";
-import { describeSchedule, getActiveDays, getActiveTimeBlocks } from "@/lib/band-settings";
+import { describeEvent, describeSchedule, getActiveDays, getActiveTimeBlocks } from "@/lib/band-settings";
+import { MapPin } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -37,6 +38,12 @@ export default async function BandDetailPage({ params }: { params: Promise<{ ban
           <p className="mt-1 text-muted-foreground">
             {band.members.length} member{band.members.length === 1 ? "" : "s"}
           </p>
+          {describeEvent(band) && (
+            <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-accent px-3 py-1 text-sm font-medium text-accent-foreground">
+              <MapPin className="h-3.5 w-3.5" />
+              {describeEvent(band)}
+            </p>
+          )}
         </div>
         <ScheduleSettingsDialog band={band} />
       </div>

@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { bands, bandMembers } from "@/db/schema";
 import { and, eq, count } from "drizzle-orm";
-import { DAYS_OF_WEEK, TIME_BLOCKS, type AvailabilityStatus, type TimeBlock } from "@/lib/constants";
+import { ALL_DAY_BLOCK, DAYS_OF_WEEK, TIME_BLOCKS, type AvailabilityStatus, type TimeBlock } from "@/lib/constants";
 import type {
   AggregateGrid,
   Band,
@@ -26,18 +26,33 @@ export async function listBandsForLeader(
 }
 
 function emptySlotCounts(): SlotCounts {
-  return { available: 0, maybe: 0, unavailable: 0, total: 0 };
+  return {
+    available: 0,
+    maybe: 0,
+    unavailable: 0,
+    total: 0,
+    availableNames: [],
+    maybeNames: [],
+    unavailableNames: [],
+  };
 }
+
+const NAMES_KEY: Record<AvailabilityStatus, "availableNames" | "maybeNames" | "unavailableNames"> = {
+  available: "availableNames",
+  maybe: "maybeNames",
+  unavailable: "unavailableNames",
+};
 
 function buildAggregate(members: MemberWithAvailability[]): AggregateGrid {
   const grid: AggregateGrid = {};
   for (const day of DAYS_OF_WEEK) {
     grid[day.value] = {};
-    for (const block of TIME_BLOCKS) {
+    for (const block of [...TIME_BLOCKS, ALL_DAY_BLOCK]) {
       const counts = emptySlotCounts();
       for (const member of members) {
         const status = member.weeklyGrid[day.value]?.[block.value] ?? "unavailable";
         counts[status] += 1;
+        counts[NAMES_KEY[status]].push(member.name);
         counts.total += 1;
       }
       grid[day.value]![block.value] = counts;

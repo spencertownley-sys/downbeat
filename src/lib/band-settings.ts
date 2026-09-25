@@ -9,6 +9,18 @@ export interface BandScheduleSettings {
   endDate: string | null;
 }
 
+export interface BandEventLabel {
+  eventLabel: string | null;
+  venue: string | null;
+}
+
+/** "Gig at The Attic", "Band Practice", or null if nothing's been set. */
+export function describeEvent(band: BandEventLabel): string | null {
+  if (!band.eventLabel && !band.venue) return null;
+  if (band.eventLabel && band.venue) return `${band.eventLabel} — ${band.venue}`;
+  return band.eventLabel ?? band.venue;
+}
+
 /** The days of the week this band actually wants availability for. */
 export function getActiveDays(band: Pick<BandScheduleSettings, "activeDays">) {
   const days = DAYS_OF_WEEK.filter((d) => band.activeDays.includes(d.value));

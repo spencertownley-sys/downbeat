@@ -1,4 +1,7 @@
+"use client";
+
 import { DAYS_OF_WEEK, TIME_BLOCKS } from "@/lib/constants";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { AggregateGrid as AggregateGridType, TimeBlock } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -53,19 +56,40 @@ export function AggregateGrid({
                 const counts = grid[day.value]?.[block.value as TimeBlock];
                 const total = counts?.total ?? 0;
                 const available = counts?.available ?? 0;
-                const maybe = counts?.maybe ?? 0;
                 const pct = total > 0 ? available / total : 0;
+
                 return (
-                  <div
-                    key={`${day.value}-${block.value}`}
-                    title={`${day.label} ${block.label}: ${available} available, ${maybe} maybe, of ${total}`}
-                    className={cn(
-                      "flex h-11 items-center justify-center rounded-md text-[11px] font-semibold sm:h-12",
-                      heatClass(pct, total)
+                  <Popover key={`${day.value}-${block.value}`}>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        disabled={total === 0}
+                        title={`${day.label} ${block.label}`}
+                        className={cn(
+                          "flex h-11 items-center justify-center rounded-md text-[11px] font-semibold transition-opacity sm:h-12",
+                          heatClass(pct, total),
+                          total > 0 && "hover:opacity-80"
+                        )}
+                      >
+                        {total > 0 ? `${available}/${total}` : ""}
+                      </button>
+                    </PopoverTrigger>
+                    {counts && total > 0 && (
+                      <PopoverContent className="w-64 space-y-3 text-sm" align="center">
+                        <p className="font-medium">
+                          {day.label} · {block.label}
+                        </p>
+                        <NameList label="Available" names={counts.availableNames} dot="bg-emerald-500" />
+                        <NameList label="Maybe" names={counts.maybeNames} dot="bg-amber-400" />
+                        <NameList
+                          label="Can't make it"
+                          names={counts.unavailableNames}
+                          dot="bg-border"
+                          emphasize
+                        />
+                      </PopoverContent>
                     )}
-                  >
-                    {total > 0 ? `${available}/${total}` : ""}
-                  </div>
+                  </Popover>
                 );
               })}
             </div>
@@ -74,7 +98,34 @@ export function AggregateGrid({
       </div>
       <p className="mt-4 text-xs text-muted-foreground">
         Each square shows how many of your {memberCount} member{memberCount === 1 ? "" : "s"} are
-        available. Darker means more of the band is free.
+        available. Tap a square to see who. Darker means more of the band is free.
+      </p>
+    </div>
+  );
+}
+
+function NameList({
+  label,
+  names,
+  dot,
+  emphasize,
+}: {
+  label: string;
+  names: string[];
+  dot: string;
+  emphasize?: boolean;
+}) {
+  if (names.length === 0) return null;
+  return (
+    <div>
+      <div className="mb-1 flex items-center gap-1.5">
+        <span className={cn("h-2.5 w-2.5 rounded-full", dot)} />
+        <span className={cn("text-xs font-medium", emphasize && "text-foreground")}>
+          {label} ({names.length})
+        </span>
+      </div>
+      <p className={cn("text-xs text-muted-foreground", emphasize && "text-foreground/80")}>
+        {names.join(", ")}
       </p>
     </div>
   );
