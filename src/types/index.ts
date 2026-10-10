@@ -3,10 +3,12 @@ import type {
   profiles,
   bands,
   bandMembers,
-  availabilityWeekly,
-  availabilityExceptions,
+  bandDayLabels,
+  availability,
 } from "@/db/schema";
-import type { AvailabilityStatus, TimeBlock } from "@/lib/constants";
+import type { AvailabilityStatus } from "@/lib/constants";
+
+export type { DateColumn } from "@/lib/band-settings";
 
 // ---------------------------------------------------------------------------
 // DB row types (inferred from Drizzle schema)
@@ -20,36 +22,46 @@ export type NewBand = InferInsertModel<typeof bands>;
 export type BandMember = InferSelectModel<typeof bandMembers>;
 export type NewBandMember = InferInsertModel<typeof bandMembers>;
 
-export type WeeklyAvailabilityRow = InferSelectModel<typeof availabilityWeekly>;
-export type AvailabilityException = InferSelectModel<typeof availabilityExceptions>;
+export type BandDayLabel = InferSelectModel<typeof bandDayLabels>;
+
+export type AvailabilityRow = InferSelectModel<typeof availability>;
 
 // ---------------------------------------------------------------------------
 // Composite / view types used across the app
 // ---------------------------------------------------------------------------
 
-/** grid[dayOfWeek][timeBlock] = status, for one member. */
-export type WeeklyGrid = Record<number, Partial<Record<TimeBlock, AvailabilityStatus>>>;
+/**
+ * grid[date][timeSlot] = status, for one member. A key mapped to `null`
+ * (as opposed to being absent) represents a cell explicitly marked to be
+ * cleared, distinct from one that was simply never answered.
+ */
+export type MemberGrid = Record<string, Record<string, AvailabilityStatus | null>>;
 
 export interface MemberWithAvailability extends BandMember {
-  weeklyGrid: WeeklyGrid;
-  exceptions: AvailabilityException[];
+  grid: MemberGrid;
 }
 
-/** aggregateGrid[dayOfWeek][timeBlock] = counts + who's in each bucket. */
+/** Per-cell counts + who's-in-which-bucket, across all members. */
 export interface SlotCounts {
-  available: number;
+  conflict: number;
   maybe: number;
-  unavailable: number;
-  total: number;
-  availableNames: string[];
+  available: number;
+  preferred: number;
+  unfilled: number;
+  conflictNames: string[];
   maybeNames: string[];
-  unavailableNames: string[];
+  availableNames: string[];
+  preferredNames: string[];
+  unfilledNames: string[];
 }
-export type AggregateGrid = Record<number, Partial<Record<TimeBlock, SlotCounts>>>;
+
+/** aggregate[date][timeSlot] = counts across all members. */
+export type AggregateGrid = Record<string, Record<string, SlotCounts>>;
 
 export interface BandWithAvailability extends Band {
   members: MemberWithAvailability[];
+  dayLabels: BandDayLabel[];
   aggregate: AggregateGrid;
 }
 
-export { type AvailabilityStatus, type TimeBlock };
+export { type AvailabilityStatus };

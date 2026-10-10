@@ -1,59 +1,76 @@
-import { format } from "date-fns";
-import { ALL_DAY_BLOCK, DAYS_OF_WEEK, TIME_BLOCKS } from "@/lib/constants";
+import { addDays, format, parseISO } from "date-fns";
+import { ALL_DAY_SLOT, DAYS_OF_WEEK, TIMEZONES, generateTimeSlots } from "@/lib/constants";
+import type { Band, BandDayLabel } from "@/types";
 
-export interface BandScheduleSettings {
-  activeDays: number[];
-  useTimeBlocks: boolean;
-  activeTimeBlocks: string[];
-  startDate: string | null;
-  endDate: string | null;
+export interface DateColumn {
+  date: string; // "yyyy-MM-dd"
+  label: string | null;
+  dayOfWeek: number; // 0-6, Sunday-based
 }
 
-export interface BandEventLabel {
-  eventLabel: string | null;
-  venue: string | null;
+/** Expands band.startDate..band.endDate into one entry per active day of week. */
+export function getDateColumns(
+  band: Pick<Band, "startDate" | "endDate" | "activeDays">,
+  dayLabels: Pick<BandDayLabel, "date" | "label">[] = []
+): DateColumn[] {
+  const labelByDate = new Map(dayLabels.map((l) => [l.date, l.label]));
+  const activeDays = new Set(band.activeDays ?? [0, 1, 2, 3, 4, 5, 6]);
+
+  const start = parseISO(band.startDate);
+  const end = parseISO(band.endDate);
+  const columns: DateColumn[] = [];
+
+  for (let d = start; d <= end; d = addDays(d, 1)) {
+    const dayOfWeek = d.getDay();
+    if (!activeDays.has(dayOfWeek)) continue;
+    const dateStr = format(d, "yyyy-MM-dd");
+    columns.push({
+      date: dateStr,
+      dayOfWeek,
+      label: labelByDate.get(dateStr) ?? null,
+    });
+  }
+
+  return columns;
 }
 
-/** "Gig at The Attic", "Band Practice", or null if nothing's been set. */
-export function describeEvent(band: BandEventLabel): string | null {
-  if (!band.eventLabel && !band.venue) return null;
-  if (band.eventLabel && band.venue) return `${band.eventLabel} — ${band.venue}`;
-  return band.eventLabel ?? band.venue;
+/** Time slots for a band's grid, or a single all-day sentinel slot. */
+export function getTimeSlots(
+  band: Pick<Band, "scheduleType" | "timeSlotStart" | "timeSlotEnd" | "timeSlotMinutes">
+): string[] {
+  if (band.scheduleType !== "date_time") return [ALL_DAY_SLOT];
+  const slots = generateTimeSlots(band.timeSlotStart, band.timeSlotEnd, band.timeSlotMinutes);
+  return slots.length > 0 ? slots : [ALL_DAY_SLOT];
 }
 
-/** The days of the week this band actually wants availability for. */
-export function getActiveDays(band: Pick<BandScheduleSettings, "activeDays">) {
-  const days = DAYS_OF_WEEK.filter((d) => band.activeDays.includes(d.value));
-  return days.length > 0 ? days : DAYS_OF_WEEK;
+export function timezoneLabel(tz: string): string {
+  return TIMEZONES.find((t) => t.value === tz)?.label ?? tz;
 }
 
-/** The time-of-day rows to render — a single "All day" row if time-of-day is off. */
-export function getActiveTimeBlocks(
-  band: Pick<BandScheduleSettings, "useTimeBlocks" | "activeTimeBlocks">
-) {
-  if (!band.useTimeBlocks) return [ALL_DAY_BLOCK];
-  const blocks = TIME_BLOCKS.filter((b) => band.activeTimeBlocks.includes(b.value));
-  return blocks.length > 0 ? blocks : TIME_BLOCKS;
+/** Short human summary of date range + active days of week. */
+export function describeSchedule(
+  band: Pick<Band, "startDate" | "endDate" | "activeDays">
+): string {
+  const start = parseISO(band.startDate);
+  const end = parseISO(band.endDate);
+  const range =
+    band.startDate === band.endDate
+      ? format(start, "MMM d")
+      : `${format(start, "MMM d")} – ${format(end, "MMM d")}`;
+
+  const activeDays = new Set(band.activeDays ?? [0, 1, 2, 3, 4, 5, 6]);
+  const isEveryDay = activeDays.size === 7;
+  if (isEveryDay) return range;
+
+  const dayLabels = DAYS_OF_WEEK.filter((d) => activeDays.has(d.value)).map((d) => d.short);
+  return `${range}, ${dayLabels.join("/")}`;
 }
 
-/** Human-readable summary shown to both the leader and members. */
-export function describeSchedule(band: BandScheduleSettings): string {
-  const days = getActiveDays(band);
-  const dayPart =
-    days.length === 7 ? "every day" : days.map((d) => d.short).join(", ");
-  const timePart = band.useTimeBlocks
-    ? getActiveTimeBlocks(band)
-        .map((b) => b.label)
-        .join(", ")
-    : "all day";
-  const fmt = (d: string) => format(new Date(`${d}T00:00:00`), "MMM d, yyyy");
-  const rangePart =
-    band.startDate && band.endDate
-      ? ` between ${fmt(band.startDate)} and ${fmt(band.endDate)}`
-      : band.startDate
-        ? ` starting ${fmt(band.startDate)}`
-        : band.endDate
-          ? ` through ${fmt(band.endDate)}`
-          : "";
-  return `${dayPart} — ${timePart}${rangePart}`;
+/** Short human summary of location, or null if nothing meaningful is set. */
+export function describeEvent(
+  band: Pick<Band, "location" | "locationType">
+): string | null {
+  if (band.locationType === "virtual") return "Virtual";
+  if (band.locationType === "tbd" && !band.location) return null;
+  return band.location || null;
 }

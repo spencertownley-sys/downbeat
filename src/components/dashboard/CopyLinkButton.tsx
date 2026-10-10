@@ -5,19 +5,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Check, Copy } from "lucide-react";
 
-/** A read-only, copyable input for any app-relative path (e.g. /join/slug or /a/slug/token). */
-export function CopyLinkButton({ path }: { path: string }) {
+export function CopyLinkButton({ slug }: { slug: string }) {
   const [copied, setCopied] = useState(false);
-  const [url, setUrl] = useState(path);
+  const [url, setUrl] = useState(`/join/${slug}`);
 
   function handleFocus() {
     if (typeof window !== "undefined") {
-      setUrl(`${window.location.origin}${path}`);
+      setUrl(`${window.location.origin}/join/${slug}`);
     }
   }
 
   async function handleCopy() {
-    const full = typeof window !== "undefined" ? `${window.location.origin}${path}` : url;
+    const full = typeof window !== "undefined" ? `${window.location.origin}/join/${slug}` : url;
     try {
       await navigator.clipboard.writeText(full);
       setCopied(true);

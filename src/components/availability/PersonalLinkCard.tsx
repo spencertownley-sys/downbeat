@@ -1,36 +1,43 @@
 "use client";
 
-import { useEffect } from "react";
-import { CopyLinkButton } from "@/components/shared/CopyLinkButton";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Check, Copy } from "lucide-react";
 
-export function PersonalLinkCard({
-  slug,
-  token,
-  name,
-}: {
-  slug: string;
-  token: string;
-  name: string;
-}) {
-  // Keep localStorage in sync even if they landed here straight from a saved
-  // or shared link rather than the join form — so /join/[slug] on this
-  // device recognizes them next time too.
-  useEffect(() => {
+/** Bookmarkable personal link + a little welcome-back messaging. */
+export function PersonalLinkCard({ slug, token }: { slug: string; token: string }) {
+  const [copied, setCopied] = useState(false);
+  const [url, setUrl] = useState(`/a/${slug}/${token}`);
+
+  function handleFocus() {
+    if (typeof window !== "undefined") setUrl(`${window.location.origin}/a/${slug}/${token}`);
+  }
+
+  async function handleCopy() {
+    const full = typeof window !== "undefined" ? `${window.location.origin}/a/${slug}/${token}` : url;
     try {
-      localStorage.setItem(`downbeat:member:${slug}`, JSON.stringify({ token, name }));
+      await navigator.clipboard.writeText(full);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     } catch {
-      // localStorage unavailable — the URL itself still works fine.
+      // Clipboard API unavailable — the input is still selectable/copyable.
     }
-  }, [slug, token, name]);
+  }
 
   return (
-    <section className="rounded-xl border bg-card p-4 sm:p-6">
-      <h2 className="mb-1 font-semibold">Your link</h2>
-      <p className="mb-4 text-sm text-muted-foreground">
-        Bookmark this or text it to yourself — it&apos;s the only way back in, and it always
-        brings you here to update your availability.
+    <div className="rounded-xl border bg-card p-4">
+      <p className="mb-2 text-sm font-medium">Your personal link</p>
+      <p className="mb-3 text-xs text-muted-foreground">
+        Bookmark this — it always brings you straight back to your availability, no sign-in needed.
       </p>
-      <CopyLinkButton path={`/a/${slug}/${token}`} />
-    </section>
+      <div className="flex gap-2">
+        <Input readOnly value={url} onFocus={handleFocus} onClick={(e) => e.currentTarget.select()} />
+        <Button type="button" onClick={handleCopy} variant="outline">
+          {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+          {copied ? "Copied" : "Copy"}
+        </Button>
+      </div>
+    </div>
   );
 }

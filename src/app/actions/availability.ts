@@ -1,12 +1,19 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { sql, or, and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { availabilityExceptions, availabilityWeekly, bandMembers, bands } from "@/db/schema";
-import { and, eq } from "drizzle-orm";
-import { ALL_DAY_BLOCK, AVAILABILITY_STATUSES, TIME_BLOCKS, type AvailabilityStatus } from "@/lib/constants";
+import { availability, bandMembers, bands } from "@/db/schema";
+import { AVAILABILITY_STATUSES, type AvailabilityStatus } from "@/lib/constants";
 import { toActionError } from "./helpers";
 import { ValidationError, type ActionResult } from "@/lib/action-errors";
+
+export interface AvailabilityUpdate {
+  date: string; // yyyy-MM-dd
+  timeSlot: string; // "HH:MM" or ALL_DAY_SLOT
+  /** null clears the cell entirely (deletes the row) instead of setting a status. */
+  status: AvailabilityStatus | null;
+}
 
 async function requireMember(slug: string, token: string) {
   const band = await db.query.bands.findFirst({ where: eq(bands.slug, slug) });
@@ -15,91 +22,70 @@ async function requireMember(slug: string, token: string) {
     where: and(eq(bandMembers.memberToken, token), eq(bandMembers.bandId, band.id)),
   });
   if (!member) throw new ValidationError("That link doesn't look right.");
-  return { member, band };
+  return member;
 }
 
-function assertStatus(status: string): asserts status is AvailabilityStatus {
-  if (!AVAILABILITY_STATUSES.includes(status as AvailabilityStatus)) {
-    throw new ValidationError("Unknown availability status.");
-  }
-}
-
-export async function setWeeklyStatus(
+/** Validates the member token, then upserts all cell changes in one batch. */
+export async function setAvailabilityBulk(
   slug: string,
   token: string,
-  dayOfWeek: number,
-  timeBlock: string,
-  status: string
+  updates: AvailabilityUpdate[]
 ): Promise<ActionResult> {
   try {
-    const { member } = await requireMember(slug, token);
-    if (dayOfWeek < 0 || dayOfWeek > 6) throw new ValidationError("Invalid day.");
-    if (timeBlock !== ALL_DAY_BLOCK.value && !TIME_BLOCKS.some((b) => b.value === timeBlock)) {
-      throw new ValidationError("Invalid time block.");
+    const member = await requireMember(slug, token);
+    if (!updates || updates.length === 0) return { ok: true };
+
+    for (const u of updates) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(u.date)) throw new ValidationError("Invalid date.");
+      if (!u.timeSlot) throw new ValidationError("Invalid time slot.");
+      if (u.status !== null && !AVAILABILITY_STATUSES.includes(u.status)) {
+        throw new ValidationError("Unknown availability status.");
+      }
     }
-    assertStatus(status);
 
-    await db
-      .insert(availabilityWeekly)
-      .values({ memberId: member.id, dayOfWeek, timeBlock, status, updatedAt: new Date() })
-      .onConflictDoUpdate({
-        target: [availabilityWeekly.memberId, availabilityWeekly.dayOfWeek, availabilityWeekly.timeBlock],
-        set: { status, updatedAt: new Date() },
-      });
+    const sets = updates.filter((u) => u.status !== null) as (AvailabilityUpdate & {
+      status: AvailabilityStatus;
+    })[];
+    const clears = updates.filter((u) => u.status === null);
 
-    revalidatePath(`/a/${slug}/${token}`);
-    return { ok: true };
-  } catch (err) {
-    return toActionError(err);
-  }
-}
-
-export async function setExceptionStatus(
-  slug: string,
-  token: string,
-  date: string,
-  status: string,
-  note?: string
-): Promise<ActionResult> {
-  try {
-    const { member, band } = await requireMember(slug, token);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new ValidationError("Invalid date.");
-    if (band.startDate && date < band.startDate) {
-      throw new ValidationError("That date is before the band's review window.");
+    const now = new Date();
+    if (sets.length > 0) {
+      // Multi-row insert with onConflictDoUpdate; each row keeps its own new
+      // status via a reference to the excluded (proposed) row.
+      await db
+        .insert(availability)
+        .values(
+          sets.map((u) => ({
+            memberId: member.id,
+            date: u.date,
+            timeSlot: u.timeSlot,
+            status: u.status,
+            updatedAt: now,
+          }))
+        )
+        .onConflictDoUpdate({
+          target: [availability.memberId, availability.date, availability.timeSlot],
+          set: { status: sql`excluded.status`, updatedAt: now },
+        });
     }
-    if (band.endDate && date > band.endDate) {
-      throw new ValidationError("That date is after the band's review window.");
-    }
-    assertStatus(status);
 
-    await db
-      .insert(availabilityExceptions)
-      .values({ memberId: member.id, date, status, note: note?.trim() || null })
-      .onConflictDoUpdate({
-        target: [availabilityExceptions.memberId, availabilityExceptions.date],
-        set: { status, note: note?.trim() || null },
-      });
-
-    revalidatePath(`/a/${slug}/${token}`);
-    return { ok: true };
-  } catch (err) {
-    return toActionError(err);
-  }
-}
-
-export async function removeException(
-  slug: string,
-  token: string,
-  date: string
-): Promise<ActionResult> {
-  try {
-    const { member } = await requireMember(slug, token);
-    await db
-      .delete(availabilityExceptions)
-      .where(
-        and(eq(availabilityExceptions.memberId, member.id), eq(availabilityExceptions.date, date))
+    if (clears.length > 0) {
+      // A true unset: delete the row entirely rather than storing a status,
+      // so the cell reverts to "not yet responded" instead of some value.
+      await db.delete(availability).where(
+        and(
+          eq(availability.memberId, member.id),
+          or(
+            ...clears.map((u) =>
+              and(eq(availability.date, u.date), eq(availability.timeSlot, u.timeSlot))
+            )
+          )
+        )
       );
+    }
+
     revalidatePath(`/a/${slug}/${token}`);
+    revalidatePath(`/dashboard`);
     return { ok: true };
   } catch (err) {
     return toActionError(err);

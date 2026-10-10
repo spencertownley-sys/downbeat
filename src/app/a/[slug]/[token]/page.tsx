@@ -1,47 +1,54 @@
 import Link from "next/link";
 import { getMemberByToken } from "@/db/queries/members";
 import { getBandBySlug } from "@/db/queries/bands";
+import { getCurrentProfile } from "@/lib/supabase/server";
+import { getDateColumns, getTimeSlots, describeSchedule, describeEvent } from "@/lib/band-settings";
 import { Logo } from "@/components/brand/Logo";
 import { AvailabilityEditor } from "@/components/availability/AvailabilityEditor";
 import { PersonalLinkCard } from "@/components/availability/PersonalLinkCard";
+import { AccountClaimCard } from "@/components/availability/AccountClaimCard";
 import { Button } from "@/components/ui/button";
-import { describeEvent, describeSchedule } from "@/lib/band-settings";
-import { MapPin } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 export default async function AvailabilityPage({
   params,
 }: {
-  params: Promise<{ slug: string; token: string }>;
+  params: { slug: string; token: string };
 }) {
-  const { slug, token } = await params;
-  const context = await getMemberByToken(slug, token);
+  const context = await getMemberByToken(params.slug, params.token);
 
   if (!context) {
-    // The token doesn't match anything — a stale/mistyped link. Point them
-    // back at the join page rather than a dead-end 404; entering the same
-    // name there reconnects them to their existing availability.
-    const band = await getBandBySlug(slug);
+    const band = await getBandBySlug(params.slug);
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background p-8 text-center">
-        <Logo />
-        <div className="max-w-sm space-y-2">
-          <p className="font-semibold">That link doesn&apos;t work anymore</p>
-          <p className="text-sm text-muted-foreground">
-            {band
-              ? "Enter your name again on the join page and we'll take you right back to your availability."
-              : "This band's link may have changed. Ask whoever invited you for a fresh one."}
-          </p>
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 text-center">
+        <div className="mb-6">
+          <Logo />
         </div>
+        <h1 className="text-xl font-semibold">That link doesn&apos;t work anymore</h1>
+        <p className="mt-2 max-w-sm text-muted-foreground">
+          {band
+            ? "Your personal link may have expired or been replaced. Rejoin to get a fresh one."
+            : "This event may have been removed."}
+        </p>
         {band && (
-          <Button asChild>
-            <Link href={`/join/${slug}`}>Go to {band.name}</Link>
+          <Button asChild className="mt-6">
+            <Link href={`/join/${params.slug}`}>Rejoin {band.name}</Link>
           </Button>
         )}
       </div>
     );
   }
+
+  const { band, member } = context;
+  const supabaseConfigured =
+    !!process.env.NEXT_PUBLIC_SUPABASE_URL && !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const profile = supabaseConfigured ? await getCurrentProfile() : null;
+
+  const dateColumns = getDateColumns(band, band.dayLabels);
+  const timeSlots = getTimeSlots(band);
+  const schedule = describeSchedule(band);
+  const location = describeEvent(band);
 
   return (
     <div className="min-h-screen bg-background">
@@ -49,40 +56,36 @@ export default async function AvailabilityPage({
         <div className="container flex h-16 items-center justify-between">
           <Logo />
           <div className="text-right text-sm">
-            <p className="font-medium">{context.bandName}</p>
-            <p className="text-xs text-muted-foreground">Hi, {context.member.name}</p>
+            <p className="font-medium">{band.name}</p>
+            <p className="text-xs text-muted-foreground">Hi, {member.name}</p>
           </div>
         </div>
       </header>
       <main className="container max-w-3xl py-10">
-        <h1 className="text-2xl font-bold tracking-tight">Your availability</h1>
-        <p className="mt-1 text-muted-foreground">
-          Tap the squares below for how your week usually looks. Changes save automatically.
-        </p>
-        {describeEvent(context) && (
-          <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-accent px-3 py-1 text-sm font-medium text-accent-foreground">
-            <MapPin className="h-3.5 w-3.5" />
-            {describeEvent(context)}
-          </p>
-        )}
+        <h1 className="text-2xl font-bold tracking-tight">{band.name}</h1>
+        {band.description && <p className="mt-1 text-muted-foreground">{band.description}</p>}
         <p className="mt-2 text-sm text-muted-foreground">
-          {context.bandName} is checking:{" "}
-          <span className="font-medium text-foreground">{describeSchedule(context)}</span>
+          {schedule}
+          {location ? ` · ${location}` : ""}
         </p>
 
-        <div className="mt-8">
-          <PersonalLinkCard slug={slug} token={token} name={context.member.name} />
+        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+          <PersonalLinkCard slug={params.slug} token={params.token} />
+          <AccountClaimCard
+            slug={params.slug}
+            token={params.token}
+            isLinked={!!member.profileId}
+            isLoggedIn={!!profile}
+            supabaseConfigured={supabaseConfigured}
+          />
         </div>
 
         <AvailabilityEditor
-          slug={slug}
-          token={token}
-          member={context.member}
-          activeDays={context.activeDays}
-          useTimeBlocks={context.useTimeBlocks}
-          activeTimeBlocks={context.activeTimeBlocks}
-          startDate={context.startDate}
-          endDate={context.endDate}
+          slug={params.slug}
+          token={params.token}
+          dateColumns={dateColumns}
+          timeSlots={timeSlots}
+          grid={member.grid}
         />
       </main>
     </div>
