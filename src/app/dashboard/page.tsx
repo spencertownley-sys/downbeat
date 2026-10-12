@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getCurrentProfile } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/auth";
 import { listBandsForLeader, listBandsForMemberProfile } from "@/db/queries/bands";
 import { describeSchedule } from "@/lib/band-settings";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

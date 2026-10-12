@@ -1,5 +1,5 @@
 import { notFound, redirect } from "next/navigation";
-import { getCurrentProfile } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/auth";
 import { getBandSettingsForLeader } from "@/db/queries/bands";
 import { BandForm } from "@/components/dashboard/BandForm";
 import type { BandSettingsInput } from "@/app/actions/bands";

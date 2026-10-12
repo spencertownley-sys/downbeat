@@ -1,6 +1,6 @@
 "use server";
 
-import { getCurrentProfile } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/auth";
 import { ValidationError, type ActionResult } from "@/lib/action-errors";
 import type { Profile } from "@/types";
 

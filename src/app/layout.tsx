@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { isAuthConfigured } from "@/lib/auth-config";
 
 export const metadata: Metadata = {
   title: {
@@ -17,7 +19,7 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return (
+  const page = (
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen font-sans antialiased">
         <script
@@ -29,5 +31,17 @@ export default function RootLayout({
         <Toaster />
       </body>
     </html>
+  );
+
+  if (!isAuthConfigured()) return page;
+  return (
+    <ClerkProvider
+      signInUrl="/login"
+      signUpUrl="/signup"
+      afterSignOutUrl="/"
+      appearance={{ variables: { colorPrimary: "hsl(258 90% 58%)" } }}
+    >
+      {page}
+    </ClerkProvider>
   );
 }

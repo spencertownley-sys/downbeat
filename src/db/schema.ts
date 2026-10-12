@@ -12,12 +12,15 @@ import { relations, sql } from "drizzle-orm";
 
 // ---------------------------------------------------------------------------
 // profiles — band leader (and, optionally, member) accounts.
-// On Supabase, profiles.id references auth.users(id); that FK lives in
-// supabase/migrations (auth schema is not managed by Drizzle).
+// `clerk_user_id` links a row to its Clerk user; a row is created the first
+// time a signed-in Clerk user hits the app. Rows with no Clerk user predate
+// Clerk (e.g. the seeded demo leader). `email` is only ever a Clerk-verified
+// address, and is optional because Clerk accounts don't require one.
 // ---------------------------------------------------------------------------
 export const profiles = pgTable("profiles", {
   id: uuid("id").primaryKey(),
-  email: text("email").notNull().unique(),
+  clerkUserId: text("clerk_user_id").unique(),
+  email: text("email").unique(),
   fullName: text("full_name").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });

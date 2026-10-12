@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { getCurrentProfile } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/auth";
 import { getBandForLeader } from "@/db/queries/bands";
 import { getDateColumns, getTimeSlots, describeSchedule, describeEvent, timezoneLabel } from "@/lib/band-settings";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

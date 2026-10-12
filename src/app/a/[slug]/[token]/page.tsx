@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { getMemberByToken } from "@/db/queries/members";
 import { getBandBySlug } from "@/db/queries/bands";
-import { getCurrentProfile } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/auth";
+import { isAuthConfigured } from "@/lib/auth-config";
 import { getDateColumns, getTimeSlots, describeSchedule, describeEvent } from "@/lib/band-settings";
 import { Logo } from "@/components/brand/Logo";
 import { AvailabilityEditor } from "@/components/availability/AvailabilityEditor";
@@ -43,9 +44,8 @@ export default async function AvailabilityPage({
   }
 
   const { band, member } = context;
-  const supabaseConfigured =
-    !!process.env.NEXT_PUBLIC_SUPABASE_URL && !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  const profile = supabaseConfigured ? await getCurrentProfile() : null;
+  const authConfigured = isAuthConfigured();
+  const profile = authConfigured ? await getCurrentProfile() : null;
 
   const dateColumns = getDateColumns(band, band.dayLabels);
   const timeSlots = getTimeSlots(band);
@@ -78,7 +78,7 @@ export default async function AvailabilityPage({
             token={token}
             isLinked={!!member.profileId}
             isLoggedIn={!!profile}
-            supabaseConfigured={supabaseConfigured}
+            authConfigured={authConfigured}
           />
         </div>
 

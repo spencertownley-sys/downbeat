@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getCurrentProfile } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/auth";
+import { UserButton } from "@clerk/nextjs";
 import { Logo } from "@/components/brand/Logo";
-import { SignOutButton } from "@/components/dashboard/SignOutButton";
+import { isAuthConfigured } from "@/lib/auth-config";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             <span className="hidden text-sm text-muted-foreground sm:inline">
               {profile.fullName}
             </span>
-            <SignOutButton />
+            {isAuthConfigured() && <UserButton />}
           </div>
         </div>
       </header>

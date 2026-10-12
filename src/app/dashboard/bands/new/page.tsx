@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getCurrentProfile } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/auth";
 import { BandForm } from "@/components/dashboard/BandForm";
 
 export const dynamic = "force-dynamic";

@@ -6,7 +6,8 @@ import { bandMembers, bands } from "@/db/schema";
 import { and, eq, ilike } from "drizzle-orm";
 import { toActionError } from "./helpers";
 import { ValidationError, type ActionResult } from "@/lib/action-errors";
-import { getCurrentProfile } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/auth";
+import { isAuthConfigured } from "@/lib/auth-config";
 
 function cleanOptional(value: string | undefined, maxLen: number): string | null {
   const trimmed = value?.trim();
@@ -98,13 +99,11 @@ export async function updateMemberProfile(
 
 /**
  * Links this anonymous member row to the signed-in account, so it shows up
- * on that account's dashboard. Requires Supabase and an active session.
+ * on that account's dashboard. Requires Clerk and an active session.
  */
 export async function claimMemberRow(slug: string, token: string): Promise<ActionResult> {
   try {
-    const supabaseConfigured =
-      !!process.env.NEXT_PUBLIC_SUPABASE_URL && !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (!supabaseConfigured) {
+    if (!isAuthConfigured()) {
       throw new ValidationError("Account linking isn't available in this environment.");
     }
 
