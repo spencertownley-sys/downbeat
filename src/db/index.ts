@@ -12,15 +12,26 @@ function createClient() {
   if (!url) {
     throw new Error("DATABASE_URL is not set");
   }
-  // Supabase pooled connections don't support prepared statements.
-  return postgres(url, { prepare: false, max: 10 });
+  return postgres(url, {
+    // Supabase pooled connections don't support prepared statements.
+    prepare: false,
+    max: 10,
+    // postgres-js keeps idle connections open forever by default. Railway's
+    // private network can drop an idle connection without telling either end,
+    // and the next query on it hangs for a minute or more. Close connections
+    // after 20s idle, recycle every connection after 5 minutes, and give up on
+    // a connection attempt after 10s rather than 30s.
+    idle_timeout: 20,
+    max_lifetime: 5 * 60,
+    connect_timeout: 10,
+  });
 }
 
-// Reuse the client across HMR reloads in development.
+// One pool per server process. The production build includes this module in
+// several server chunks, and each would otherwise open its own pool; in
+// development this also survives HMR reloads.
 const client = globalThis.__pgClient ?? createClient();
-if (process.env.NODE_ENV !== "production") {
-  globalThis.__pgClient = client;
-}
+globalThis.__pgClient = client;
 
 export const db = drizzle(client, { schema });
 
