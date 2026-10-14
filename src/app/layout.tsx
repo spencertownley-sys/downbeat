@@ -12,6 +12,9 @@ export const metadata: Metadata = {
   },
   description:
     "The easiest way for a band to find time to rehearse. Share one link, everyone taps their availability, no logins for the band.",
+  // Added to an iPhone Home Screen, Downbeat opens as an app at the page it was
+  // saved from (a member's own availability page) and keeps its storage.
+  appleWebApp: { capable: true, title: "Downbeat", statusBarStyle: "default" },
 };
 
 export default function RootLayout({

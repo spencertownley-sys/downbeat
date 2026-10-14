@@ -3,11 +3,15 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { bandMembers, bands } from "@/db/schema";
-import { and, eq, ilike } from "drizzle-orm";
+import { and, eq, ilike, ne } from "drizzle-orm";
 import { toActionError } from "./helpers";
 import { ValidationError, type ActionResult } from "@/lib/action-errors";
 import { getCurrentProfile } from "@/lib/auth";
 import { isAuthConfigured } from "@/lib/auth-config";
+import { generateRecoveryCode, hashRecoveryCode } from "@/lib/recovery";
+
+const NAME_TAKEN =
+  "Someone in this band already goes by that name. If that's you, get back in with your recovery code or passkey below, or ask your band leader for a rejoin link. Otherwise, add a last initial.";
 
 function cleanOptional(value: string | undefined, maxLen: number): string | null {
   const trimmed = value?.trim();
@@ -17,16 +21,20 @@ function cleanOptional(value: string | undefined, maxLen: number): string | null
 }
 
 /**
- * No login: a member types their name once, and we find-or-create their row
- * in this band. The returned token is embedded in their personal link
- * (/a/[slug]/[token]) — that link IS their credential from then on.
+ * No login: a member types their name once and gets a new row in this band.
+ * The returned token is embedded in their personal link (/a/[slug]/[token]),
+ * which is their credential from then on. Typing an existing member's name
+ * never returns that member — getting back in takes a recovery code, a
+ * passkey, or a rejoin link from the band leader.
+ *
+ * `recoveryCode` is shown to the member once and only its hash is stored.
  */
 export async function joinBand(
   slug: string,
   name: string,
   instrument?: string,
   contact?: string
-): Promise<ActionResult<{ token: string; memberName: string }>> {
+): Promise<ActionResult<{ token: string; memberName: string; recoveryCode: string }>> {
   try {
     const trimmed = name.trim();
     if (!trimmed) throw new ValidationError("Enter your name to continue.");
@@ -37,26 +45,41 @@ export async function joinBand(
     const band = await db.query.bands.findFirst({ where: eq(bands.slug, slug) });
     if (!band) throw new ValidationError("That link doesn't look right — check it and try again.");
 
-    const existing = await db.query.bandMembers.findFirst({
-      where: and(eq(bandMembers.bandId, band.id), ilike(bandMembers.name, trimmed)),
-    });
-    if (existing) {
-      await db
-        .update(bandMembers)
-        .set({ lastSeenAt: new Date() })
-        .where(eq(bandMembers.id, existing.id));
-      return { ok: true, data: { token: existing.memberToken, memberName: existing.name } };
-    }
+    if (await nameTaken(band.id, trimmed)) throw new ValidationError(NAME_TAKEN);
 
+    const recoveryCode = generateRecoveryCode();
     const [member] = await db
       .insert(bandMembers)
-      .values({ bandId: band.id, name: trimmed, instrument: cleanInstrument, contact: cleanContact })
+      .values({
+        bandId: band.id,
+        name: trimmed,
+        instrument: cleanInstrument,
+        contact: cleanContact,
+        recoveryCodeHash: hashRecoveryCode(recoveryCode),
+      })
       .returning();
 
-    return { ok: true, data: { token: member.memberToken, memberName: member.name } };
+    return { ok: true, data: { token: member.memberToken, memberName: member.name, recoveryCode } };
   } catch (err) {
     return toActionError(err);
   }
+}
+
+/** Case-insensitive: is `name` used by another member of this band? */
+async function nameTaken(bandId: string, name: string, exceptMemberId?: string): Promise<boolean> {
+  const existing = await db.query.bandMembers.findFirst({
+    where: and(
+      eq(bandMembers.bandId, bandId),
+      ilike(bandMembers.name, escapeLike(name)),
+      exceptMemberId ? ne(bandMembers.id, exceptMemberId) : undefined
+    ),
+  });
+  return !!existing;
+}
+
+/** ilike treats % and _ as wildcards; match them literally. */
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, (ch) => `\\${ch}`);
 }
 
 /** Lets a member (no account) update their own name/role/contact from their personal link. */
@@ -79,6 +102,9 @@ export async function updateMemberProfile(
       where: and(eq(bandMembers.memberToken, token), eq(bandMembers.bandId, band.id)),
     });
     if (!member) throw new ValidationError("That link doesn't look right.");
+    if (await nameTaken(band.id, trimmed, member.id)) {
+      throw new ValidationError("Someone else in this band already goes by that name.");
+    }
 
     await db
       .update(bandMembers)

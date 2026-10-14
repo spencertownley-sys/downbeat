@@ -27,8 +27,8 @@ export function PersonalLinkCard({
     <section className="rounded-xl border bg-card p-4 sm:p-6">
       <h2 className="mb-1 font-semibold">Your link</h2>
       <p className="mb-4 text-sm text-muted-foreground">
-        Bookmark this or text it to yourself — it&apos;s the only way back in, and it always
-        brings you here to update your availability.
+        Bookmark this or text it to yourself — it always brings you back here to update your
+        availability.
       </p>
       <CopyLinkButton path={`/a/${slug}/${token}`} />
     </section>
