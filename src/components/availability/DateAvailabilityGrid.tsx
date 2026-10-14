@@ -3,15 +3,29 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { setAvailabilityBulk, type AvailabilityUpdate } from "@/app/actions/availability";
-import { AVAILABILITY_STATUSES, STATUS_META, UNFILLED_META, formatTimeSlot } from "@/lib/constants";
+import { ALL_DAY_SLOT, AVAILABILITY_STATUSES, STATUS_META, UNFILLED_META, formatTimeSlot } from "@/lib/constants";
+import { buildGridLayout, calendarDayLabel, type GridCell, type GridLayout } from "@/lib/grid-layout";
 import type { AvailabilityStatus, DateColumn, MemberGrid } from "@/types";
 import { Button } from "@/components/ui/button";
+import { WeekStartSelect, useWeekStart } from "@/components/availability/WeekStartSelect";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 
 interface CellPos {
   r: number;
   c: number;
+}
+
+function cellTitle(cell: GridCell): string {
+  const day = format(parseISO(cell.date), "EEE, MMM d");
+  return cell.slot === ALL_DAY_SLOT ? day : `${day} ${formatTimeSlot(cell.slot)}`;
+}
+
+/** Every position in the layout that holds a date. */
+function answerablePositions(layout: GridLayout): CellPos[] {
+  const positions: CellPos[] = [];
+  layout.cells.forEach((row, r) => row.forEach((cell, c) => cell && positions.push({ r, c })));
+  return positions;
 }
 
 export function DateAvailabilityGrid({
@@ -33,6 +47,16 @@ export function DateAvailabilityGrid({
   /** "unset" is a UI-only tool — painting with it clears cells instead of setting a status. */
   const [activeStatus, setActiveStatus] = useState<AvailabilityStatus | "unset">("available");
   const [saving, setSaving] = useState(false);
+  const [weekStart, setWeekStart] = useWeekStart();
+  const layout = useMemo(
+    () => buildGridLayout(dateColumns, timeSlots, weekStart),
+    [dateColumns, timeSlots, weekStart]
+  );
+  // The window mouseup listener is registered once, so it reads the layout through a ref.
+  const layoutRef = useRef(layout);
+  useEffect(() => {
+    layoutRef.current = layout;
+  }, [layout]);
 
   const [dragStart, setDragStart] = useState<CellPos | null>(null);
   const [dragEnd, setDragEnd] = useState<CellPos | null>(null);
@@ -60,9 +84,9 @@ export function DateAvailabilityGrid({
     setLocalGrid((prev) => {
       const next: MemberGrid = { ...prev };
       for (const { r, c } of cells) {
-        const date = dateColumns[c].date;
-        const slot = timeSlots[r];
-        next[date] = { ...next[date], [slot]: value };
+        const cell = layoutRef.current.cells[r]?.[c];
+        if (!cell) continue;
+        next[cell.date] = { ...next[cell.date], [cell.slot]: value };
       }
       return next;
     });
@@ -135,42 +159,30 @@ export function DateAvailabilityGrid({
   }
 
   function fillAll() {
-    const cells: CellPos[] = [];
-    for (let r = 0; r < timeSlots.length; r++) {
-      for (let c = 0; c < dateColumns.length; c++) cells.push({ r, c });
-    }
-    setCells(cells, activeStatus);
+    setCells(answerablePositions(layout), activeStatus);
   }
 
   function fillRow(r: number) {
-    const cells = dateColumns.map((_, c) => ({ r, c }));
+    const cells = layout.cols.map((_, c) => ({ r, c }));
     setCells(cells, activeStatus);
   }
 
   function fillColumn(c: number) {
-    const cells = timeSlots.map((_, r) => ({ r, c }));
+    const cells = layout.rows.map((_, r) => ({ r, c }));
     setCells(cells, activeStatus);
   }
 
   function fillRemaining() {
-    const cells: CellPos[] = [];
-    for (let r = 0; r < timeSlots.length; r++) {
-      for (let c = 0; c < dateColumns.length; c++) {
-        if (!getStatus(localGrid, dateColumns[c].date, timeSlots[r])) {
-          cells.push({ r, c });
-        }
-      }
-    }
+    const cells = answerablePositions(layout).filter(({ r, c }) => {
+      const cell = layout.cells[r][c]!;
+      return !getStatus(localGrid, cell.date, cell.slot);
+    });
     setCells(cells, activeStatus);
   }
 
   /** Marks every cell — including previously saved ones — to be cleared on next save. */
   function clearAllCells() {
-    const cells: CellPos[] = [];
-    for (let r = 0; r < timeSlots.length; r++) {
-      for (let c = 0; c < dateColumns.length; c++) cells.push({ r, c });
-    }
-    setCells(cells, "unset");
+    setCells(answerablePositions(layout), "unset");
   }
 
   function clearPendingChanges() {
@@ -179,18 +191,18 @@ export function DateAvailabilityGrid({
 
   const dirtyUpdates = useMemo<AvailabilityUpdate[]>(() => {
     const updates: AvailabilityUpdate[] = [];
-    for (const col of dateColumns) {
-      for (const slot of timeSlots) {
-        const local = getStatus(localGrid, col.date, slot);
-        const saved = getStatus(savedGrid, col.date, slot);
+    for (const row of layout.cells) {
+      for (const cell of row) {
+        if (!cell) continue;
+        const local = getStatus(localGrid, cell.date, cell.slot);
+        const saved = getStatus(savedGrid, cell.date, cell.slot);
         if (local !== saved) {
-          updates.push({ date: col.date, timeSlot: slot, status: local });
+          updates.push({ date: cell.date, timeSlot: cell.slot, status: local });
         }
       }
     }
     return updates;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [localGrid, savedGrid]);
+  }, [localGrid, savedGrid, layout]);
 
   async function handleSave() {
     if (dirtyUpdates.length === 0) return;
@@ -264,61 +276,98 @@ export function DateAvailabilityGrid({
         </div>
       </div>
 
+      {layout.kind === "weeks" && (
+        <div className="mb-2 flex justify-end">
+          <WeekStartSelect value={weekStart} onChange={setWeekStart} />
+        </div>
+      )}
+
       <div className="overflow-x-auto rounded-lg border">
         <div
           className="grid select-none"
           style={{
-            gridTemplateColumns: `120px repeat(${dateColumns.length}, minmax(64px, 1fr))`,
+            gridTemplateColumns:
+              layout.kind === "weeks"
+                ? `64px repeat(${layout.cols.length}, minmax(30px, 1fr))`
+                : `120px repeat(${layout.cols.length}, minmax(64px, 1fr))`,
           }}
         >
           <div className="sticky left-0 z-10 border-b border-r bg-card" />
-          {dateColumns.map((col, c) => (
+          {layout.cols.map((col, c) => (
             <button
-              key={col.date}
+              key={col.key}
               type="button"
               onClick={() => fillColumn(c)}
-              title={`Fill ${format(parseISO(col.date), "EEE, MMM d")} with ${activeToolLabel}`}
+              title={
+                layout.kind === "weeks"
+                  ? `Fill every ${col.title} with ${activeToolLabel}`
+                  : `Fill ${col.title} with ${activeToolLabel}`
+              }
               className="flex flex-col items-center justify-center border-b border-l bg-card px-1 py-1.5 text-center text-[11px] font-medium text-muted-foreground hover:bg-muted"
             >
-              <span>{format(parseISO(col.date), "EEE")}</span>
-              <span>{format(parseISO(col.date), "M/d")}</span>
-              {col.label && (
+              <span>{col.primary}</span>
+              {col.secondary && <span>{col.secondary}</span>}
+              {col.dayLabel && (
                 <span className="mt-0.5 rounded bg-primary/10 px-1 text-[10px] font-semibold text-primary">
-                  {col.label}
+                  {col.dayLabel}
                 </span>
               )}
             </button>
           ))}
 
-          {timeSlots.map((slot, r) => (
-            <div key={slot} className="contents">
+          {layout.rows.map((row, r) => (
+            <div key={row.key} className="contents">
               <button
                 type="button"
                 onClick={() => fillRow(r)}
-                title={`Fill ${formatTimeSlot(slot)} with ${activeToolLabel}`}
-                className="sticky left-0 z-10 flex items-center justify-end border-b border-r bg-card px-2 py-2 text-right text-[11px] font-medium text-muted-foreground hover:bg-muted"
+                title={
+                  layout.kind === "weeks"
+                    ? `Fill the ${row.title.toLowerCase()} with ${activeToolLabel}`
+                    : `Fill ${row.title} with ${activeToolLabel}`
+                }
+                className={cn(
+                  "sticky left-0 z-10 flex items-center justify-end border-b border-r bg-card py-2 text-right font-medium text-muted-foreground hover:bg-muted",
+                  layout.kind === "weeks" ? "px-1.5 text-[10px] leading-tight" : "px-2 text-[11px]"
+                )}
               >
-                {formatTimeSlot(slot)}
+                {row.primary}
               </button>
-              {dateColumns.map((col, c) => {
-                const status = localGrid[col.date]?.[slot];
+              {layout.cols.map((col, c) => {
+                const cell = layout.cells[r][c];
+                if (!cell) {
+                  return <div key={`${row.key}-${col.key}`} className="border-b border-l bg-muted/40" />;
+                }
+                const status = localGrid[cell.date]?.[cell.slot];
                 const meta = status ? STATUS_META[status] : UNFILLED_META;
                 const inRect = isInDragRect(r, c);
                 return (
                   <button
-                    key={`${col.date}-${slot}`}
+                    key={`${cell.date}-${cell.slot}`}
                     type="button"
                     onMouseDown={() => handleCellMouseDown(r, c)}
                     onMouseEnter={() => handleCellMouseEnter(r, c)}
                     onClick={() => handleCellClick(r, c)}
-                    title={`${format(parseISO(col.date), "EEE, MMM d")} ${formatTimeSlot(slot)}: ${meta.label}`}
+                    title={`${cellTitle(cell)}: ${meta.label}`}
                     className={cn(
-                      "h-9 border-b border-l text-[10px] font-medium transition-colors",
+                      "border-b border-l text-[10px] font-medium transition-colors",
+                      layout.kind === "weeks" ? "flex h-12 flex-col items-center justify-center gap-0.5" : "h-9",
                       meta.cellClass,
                       inRect && "ring-2 ring-inset ring-foreground/60"
                     )}
                   >
-                    <span className="sr-only">{meta.label}</span>
+                    {layout.kind === "weeks" ? (
+                      <>
+                        <span className="text-[11px] font-semibold sm:text-xs">{calendarDayLabel(cell.date)}</span>
+                        {cell.dayLabel && (
+                          <span className="max-w-full truncate px-0.5 text-[9px] font-semibold">
+                            {cell.dayLabel}
+                          </span>
+                        )}
+                        <span className="sr-only">{meta.label}</span>
+                      </>
+                    ) : (
+                      <span className="sr-only">{meta.label}</span>
+                    )}
                   </button>
                 );
               })}
