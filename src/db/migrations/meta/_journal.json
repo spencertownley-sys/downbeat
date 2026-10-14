@@ -43,6 +43,13 @@
       "when": 1791660093989,
       "tag": "0005_abandoned_marvel_apes",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791772511023,
+      "tag": "0006_clerk_users",
+      "breakpoints": true
     }
   ]
 }

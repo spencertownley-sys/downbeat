@@ -4,12 +4,12 @@ The easiest way for a band to find time to rehearse. One person creates a
 band and gets a shareable link — everyone else just taps their availability,
 no account, no login, no app to download.
 
-Built with **Next.js 14 (App Router) · Drizzle ORM · PostgreSQL/Supabase ·
+Built with **Next.js (App Router) · Clerk · Drizzle ORM · PostgreSQL ·
 Tailwind CSS + shadcn/ui**.
 
 ## How it works
 
-- **Band leaders** sign up for an account, create a band, and get a link
+- **Band leaders** sign in with Clerk, create a band, and get a link
   like `/join/downbeat-crew-4k2p` to send to their bandmates.
 - **Band members** never sign up. They open the link, type their name once,
   and land on a personal availability page at `/a/[slug]/[memberToken]` —
@@ -31,34 +31,37 @@ npm install
 cp .env.example .env.local
 ```
 
-### 2. Configure the database
+### 2. Configure
 
-**Option A — Supabase (full auth):** create a project at supabase.com, then in
-`.env.local` set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
-`SUPABASE_SERVICE_ROLE_KEY`, and `DATABASE_URL` (the *direct* Postgres
-connection string from Project Settings → Database).
-
-**Option B — plain local Postgres (no auth, dev only):** set only
+Point `DATABASE_URL` in `.env.local` at a Postgres database:
 
 ```env
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/downbeat
 ```
 
-Without Supabase configured, the middleware skips login and dev mode falls
-back to the first seeded profile, so you can explore the dashboard
-immediately.
+For band leader sign-in, create an application at
+[dashboard.clerk.com](https://dashboard.clerk.com) and set
+`NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY`. Which sign-in
+methods leaders get (email, Google, passkeys, …) is configured in the Clerk
+dashboard, not in code.
+
+Without the Clerk keys, local dev skips sign-in and the dashboard falls back
+to the first seeded profile, so you can explore immediately. A production
+build without them keeps the dashboard closed instead.
+
+**Deploying (Railway):** set both Clerk keys as service variables. The
+publishable key is baked in at build time, which is why the `Dockerfile`
+declares it as an `ARG`. To hand bands created before sign-in existed to your
+account, also set `CLAIM_EXISTING_BANDS_FOR` to your Clerk user ID or verified
+email; they move to you the next time you load the dashboard.
 
 ### 3. Migrate
 
 ```bash
 npm run db:migrate
-# or apply the SQL directly:
-#   psql "$DATABASE_URL" -f src/db/migrations/0000_init.sql
 ```
 
-On Supabase, additionally run `supabase/migrations/20260101000000_rls_policies.sql`
-(SQL editor or `supabase db push`) to enable RLS, the signup-profile trigger,
-and the `auth.users` foreign key.
+The Docker image runs migrations and the (idempotent) seed on every start.
 
 ### 4. Seed (optional)
 
@@ -74,6 +77,7 @@ some sample availability, and prints the demo join link.
 ```bash
 npm run dev      # http://localhost:3000
 npm run build && npm start   # production
+npm test         # Vitest, against an in-memory Postgres (PGlite)
 ```
 
 ## Project layout
@@ -82,7 +86,7 @@ npm run build && npm start   # production
 src/
 ├── app/
 │   ├── page.tsx              # marketing landing page (public)
-│   ├── (auth)/                # login / signup — band leaders only
+│   ├── (auth)/                # Clerk sign-in / sign-up — band leaders only
 │   ├── join/[slug]/           # public: a member enters their name
 │   ├── a/[slug]/[token]/      # public: a member's availability editor
 │   ├── dashboard/              # authenticated: leader's bands
@@ -98,9 +102,8 @@ src/
 │   ├── migrations/                # generated SQL
 │   ├── queries/                   # reusable read queries
 │   └── seed.ts                    # demo band + members
-├── lib/                            # constants, slug generator, supabase clients, utils
+├── lib/                            # auth (Clerk → profiles), constants, slug generator, utils
 └── types/                          # shared TS types
-supabase/migrations/                # RLS policies + auth trigger (Supabase-only)
 ```
 
 ## Notable implementation details

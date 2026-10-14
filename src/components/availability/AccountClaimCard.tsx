@@ -11,19 +11,19 @@ export function AccountClaimCard({
   token,
   isLinked,
   isLoggedIn,
-  supabaseConfigured,
+  authConfigured,
 }: {
   slug: string;
   token: string;
   isLinked: boolean;
   isLoggedIn: boolean;
-  supabaseConfigured: boolean;
+  authConfigured: boolean;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  if (!supabaseConfigured) return null;
+  if (!authConfigured) return null;
 
   if (isLinked) {
     return (
@@ -38,7 +38,7 @@ export function AccountClaimCard({
     setError(null);
     if (!isLoggedIn) {
       const next = `/a/${slug}/${token}`;
-      router.push(`/login?next=${encodeURIComponent(next)}`);
+      router.push(`/login?redirect_url=${encodeURIComponent(next)}`);
       return;
     }
     startTransition(async () => {
