@@ -15,6 +15,18 @@ Tailwind CSS + shadcn/ui**.
   and land on a personal availability page at `/a/[slug]/[memberToken]` —
   that link *is* their credential, so bookmarking or re-visiting it lets
   them come back and edit anytime.
+- **Getting back in on a new device** (typing the same name doesn't — names
+  must be unique per band):
+  - a **recovery code** shown once when they join (or made later from their
+    page), entered on the invite page;
+  - a **passkey** saved from their page, used via "Sign in with a passkey"
+    on the invite page;
+  - a **rejoin link** the band leader makes from the member list — single
+    use, expires after 24 hours.
+  A recovery code or rejoin link moves the member to a new personal link
+  and a new code; the old ones stop working. A passkey sign-in keeps the
+  current link. iPhone Safari users are prompted to add Downbeat to their
+  Home Screen, since Safari erases site data after 7 days without a visit.
 - Members mark a **recurring weekly grid** (Sunday–Saturday ×
   morning/afternoon/evening/night, cycling through Available → Maybe → Not
   available) plus any **specific-date exceptions** ("busy Dec 25" even
@@ -118,6 +130,9 @@ src/
 - **Aggregate heatmap** is computed server-side per band by summing each
   member's weekly grid into `{available, maybe, unavailable, total}` counts
   per slot.
-- **Joining is idempotent**: typing the same name (case-insensitively)
-  twice on the same band's join link returns the same member and token
-  instead of creating a duplicate.
+- **Names are unique per band** (case-insensitively). Typing a taken name
+  never returns that member's link; it points to the recovery options above.
+- **Recovery secrets are stored hashed**: only SHA-256 hashes of recovery
+  codes and rejoin-link tokens are kept. Passkeys (WebAuthn, via
+  SimpleWebAuthn) are bound to the site's domain without `www.`; set
+  `WEBAUTHN_RP_ID` to pin it explicitly.

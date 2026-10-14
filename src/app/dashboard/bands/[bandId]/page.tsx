@@ -9,6 +9,7 @@ import { AggregateDateGrid } from "@/components/availability/AggregateDateGrid";
 import { StatusLegend } from "@/components/availability/StatusLegend";
 import { CopyLinkButton } from "@/components/shared/CopyLinkButton";
 import { DayLabelsEditor } from "@/components/dashboard/DayLabelsEditor";
+import { RejoinLinkButton } from "@/components/dashboard/RejoinLinkButton";
 import { Pencil } from "lucide-react";
 import { format } from "date-fns";
 
@@ -99,16 +100,19 @@ export default async function BandDetailPage({ params }: { params: Promise<{ ban
           ) : (
             <ul className="space-y-3">
               {band.members.map((member) => (
-                <li key={member.id} className="flex items-center justify-between">
+                <li key={member.id} className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <span className="font-medium">{member.name}</span>
                     {member.instrument && (
                       <span className="ml-2 text-xs text-muted-foreground">{member.instrument}</span>
                     )}
                   </div>
-                  <span className="text-xs text-muted-foreground">
-                    Last updated {format(new Date(member.lastSeenAt ?? member.createdAt!), "MMM d")}
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-muted-foreground">
+                      Last updated {format(new Date(member.lastSeenAt ?? member.createdAt!), "MMM d")}
+                    </span>
+                    <RejoinLinkButton bandId={band.id} memberId={member.id} memberName={member.name} />
+                  </div>
                 </li>
               ))}
             </ul>

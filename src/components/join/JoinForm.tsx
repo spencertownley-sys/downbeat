@@ -7,10 +7,9 @@ import { joinBand } from "@/app/actions/members";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-function storageKey(slug: string) {
-  return `downbeat:member:${slug}`;
-}
+import { RecoverSpot } from "@/components/join/RecoverSpot";
+import { RecoveryCodeNotice } from "@/components/recovery/RecoveryCodeNotice";
+import { recallMember, rememberMember } from "@/components/recovery/member-storage";
 
 export function JoinForm({ slug }: { slug: string }) {
   const router = useRouter();
@@ -20,23 +19,12 @@ export function JoinForm({ slug }: { slug: string }) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [returning, setReturning] = useState<{ token: string; name: string } | null>(null);
+  const [joined, setJoined] = useState<{ token: string; recoveryCode: string } | null>(null);
+  const [recoverOpen, setRecoverOpen] = useState(false);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(storageKey(slug));
-      if (raw) setReturning(JSON.parse(raw));
-    } catch {
-      // localStorage unavailable — just show the regular form.
-    }
+    setReturning(recallMember(slug));
   }, [slug]);
-
-  function saveReturning(token: string, memberName: string) {
-    try {
-      localStorage.setItem(storageKey(slug), JSON.stringify({ token, name: memberName }));
-    } catch {
-      // localStorage unavailable — the URL itself still works fine.
-    }
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -46,10 +34,23 @@ export function JoinForm({ slug }: { slug: string }) {
     setLoading(false);
     if (!result.ok || !result.data) {
       setError(!result.ok ? result.error : "Something went wrong. Please try again.");
+      if (!result.ok && /already goes by that name/.test(result.error)) setRecoverOpen(true);
       return;
     }
-    saveReturning(result.data.token, result.data.memberName);
-    router.push(`/a/${slug}/${result.data.token}`);
+    rememberMember(slug, result.data.token, result.data.memberName);
+    setJoined({ token: result.data.token, recoveryCode: result.data.recoveryCode });
+  }
+
+  if (joined) {
+    return (
+      <div className="space-y-4">
+        <p className="text-sm">You&apos;re in! One quick thing before you mark your availability:</p>
+        <RecoveryCodeNotice code={joined.recoveryCode} />
+        <Button className="w-full" onClick={() => router.push(`/a/${slug}/${joined.token}`)}>
+          I saved it — continue
+        </Button>
+      </div>
+    );
   }
 
   return (
@@ -84,9 +85,6 @@ export function JoinForm({ slug }: { slug: string }) {
               onChange={(e) => setName(e.target.value)}
               placeholder="Alex"
             />
-            <p className="text-xs text-muted-foreground">
-              Already joined? Enter the same name to get back to your availability.
-            </p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="instrument">
@@ -116,6 +114,8 @@ export function JoinForm({ slug }: { slug: string }) {
           </Button>
         </form>
       )}
+
+      <RecoverSpot slug={slug} open={recoverOpen} onOpenChange={setRecoverOpen} />
     </div>
   );
 }

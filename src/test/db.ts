@@ -1,7 +1,7 @@
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import * as schema from "@/db/schema";
 
 /** In-memory Postgres with the app's real migrations applied. */
@@ -39,6 +39,19 @@ export async function insertBand(db: TestDb, leaderId: string, name: string) {
     })
     .returning();
   return band;
+}
+
+export async function insertMember(db: TestDb, bandId: string, name: string, recoveryCodeHash?: string) {
+  const [member] = await db
+    .insert(schema.bandMembers)
+    .values({ bandId, name, recoveryCodeHash })
+    .returning();
+  return member;
+}
+
+export async function getMember(db: TestDb, id: string) {
+  const [member] = await db.select().from(schema.bandMembers).where(eq(schema.bandMembers.id, id));
+  return member;
 }
 
 export async function bandOwners(db: TestDb) {

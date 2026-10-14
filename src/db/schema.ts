@@ -89,6 +89,8 @@ export const bandDayLabels = pgTable(
 // band_members — a person in the band. No account required. `member_token`
 // is the bearer credential embedded in their personal link
 // (/a/[slug]/[memberToken]) — knowing it is how they prove who they are.
+// Recovering on a new device replaces it, so the old link stops working.
+// `recovery_code_hash` is a SHA-256 of the one-time-shown recovery code.
 // `profile_id` is set only if/when they link this row to a real account.
 // ---------------------------------------------------------------------------
 export const bandMembers = pgTable(
@@ -102,6 +104,7 @@ export const bandMembers = pgTable(
     instrument: text("instrument"),
     contact: text("contact"),
     memberToken: uuid("member_token").notNull().default(sql`gen_random_uuid()`).unique(),
+    recoveryCodeHash: text("recovery_code_hash"),
     profileId: uuid("profile_id").references(() => profiles.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).defaultNow(),
@@ -112,6 +115,63 @@ export const bandMembers = pgTable(
     profileIdx: index("idx_band_members_profile").on(table.profileId),
   })
 );
+
+// ---------------------------------------------------------------------------
+// member_rejoin_links — leader-generated, single-use links that move a member
+// onto a new device. Only a hash of the token is stored. A link is spent when
+// `used_at` is set; making a new one for the same member deletes older ones.
+// ---------------------------------------------------------------------------
+export const memberRejoinLinks = pgTable(
+  "member_rejoin_links",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    memberId: uuid("member_id")
+      .notNull()
+      .references(() => bandMembers.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull().unique(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    memberIdx: index("idx_member_rejoin_links_member").on(table.memberId),
+  })
+);
+
+// ---------------------------------------------------------------------------
+// member_passkeys — WebAuthn credentials a member saved for one band
+// membership. `credential_id` and `public_key` are base64url.
+// ---------------------------------------------------------------------------
+export const memberPasskeys = pgTable(
+  "member_passkeys",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    memberId: uuid("member_id")
+      .notNull()
+      .references(() => bandMembers.id, { onDelete: "cascade" }),
+    credentialId: text("credential_id").notNull().unique(),
+    publicKey: text("public_key").notNull(),
+    counter: integer("counter").notNull().default(0),
+    transports: text("transports").array(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  },
+  (table) => ({
+    memberIdx: index("idx_member_passkeys_member").on(table.memberId),
+  })
+);
+
+// ---------------------------------------------------------------------------
+// webauthn_challenges — short-lived, single-use challenges for passkey
+// registration (scoped to a member) and sign-in (scoped to a band).
+// ---------------------------------------------------------------------------
+export const webauthnChallenges = pgTable("webauthn_challenges", {
+  challenge: text("challenge").primaryKey(),
+  purpose: text("purpose").notNull(), // 'register' | 'authenticate'
+  memberId: uuid("member_id").references(() => bandMembers.id, { onDelete: "cascade" }),
+  bandId: uuid("band_id").references(() => bands.id, { onDelete: "cascade" }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+});
 
 // ---------------------------------------------------------------------------
 // availability — one row per (member, calendar date, time slot). Missing

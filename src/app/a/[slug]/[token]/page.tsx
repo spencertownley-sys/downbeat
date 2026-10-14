@@ -9,6 +9,11 @@ import { AvailabilityEditor } from "@/components/availability/AvailabilityEditor
 import { PersonalLinkCard } from "@/components/availability/PersonalLinkCard";
 import { AccountClaimCard } from "@/components/availability/AccountClaimCard";
 import { ProfileEditor } from "@/components/availability/ProfileEditor";
+import { ForgetStaleLink } from "@/components/recovery/ForgetStaleLink";
+import { IosHomeScreenPrompt } from "@/components/recovery/IosHomeScreenPrompt";
+import { KeepAccessCard } from "@/components/recovery/KeepAccessCard";
+import { PasskeyPrompt } from "@/components/recovery/PasskeyPrompt";
+import { countPasskeys } from "@/lib/passkeys";
 import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
@@ -28,15 +33,16 @@ export default async function AvailabilityPage({
         <div className="mb-6">
           <Logo />
         </div>
+        <ForgetStaleLink slug={slug} token={token} />
         <h1 className="text-xl font-semibold">That link doesn&apos;t work anymore</h1>
         <p className="mt-2 max-w-sm text-muted-foreground">
           {band
-            ? "Your personal link may have expired or been replaced. Rejoin to get a fresh one."
+            ? "Your personal link may have been replaced — for example, if you got back in on another device. Use your recovery code or passkey on the invite page, or ask your band leader for a rejoin link."
             : "This event may have been removed."}
         </p>
         {band && (
           <Button asChild className="mt-6">
-            <Link href={`/join/${slug}`}>Rejoin {band.name}</Link>
+            <Link href={`/join/${slug}`}>Go to the {band.name} invite page</Link>
           </Button>
         )}
       </div>
@@ -46,6 +52,7 @@ export default async function AvailabilityPage({
   const { band, member } = context;
   const authConfigured = isAuthConfigured();
   const profile = authConfigured ? await getCurrentProfile() : null;
+  const passkeyCount = await countPasskeys(member.id);
 
   const dateColumns = getDateColumns(band, band.dayLabels);
   const timeSlots = getTimeSlots(band);
@@ -64,6 +71,10 @@ export default async function AvailabilityPage({
         </div>
       </header>
       <main className="container max-w-3xl py-10">
+        <IosHomeScreenPrompt />
+        {passkeyCount === 0 && (
+          <PasskeyPrompt slug={slug} token={token} memberId={member.id} bandName={band.name} />
+        )}
         <h1 className="text-2xl font-bold tracking-tight">{band.name}</h1>
         {band.description && <p className="mt-1 text-muted-foreground">{band.description}</p>}
         <p className="mt-2 text-sm text-muted-foreground">
@@ -79,6 +90,15 @@ export default async function AvailabilityPage({
             isLinked={!!member.profileId}
             isLoggedIn={!!profile}
             authConfigured={authConfigured}
+          />
+        </div>
+
+        <div className="mt-6">
+          <KeepAccessCard
+            slug={slug}
+            token={token}
+            hasRecoveryCode={!!member.recoveryCodeHash}
+            passkeyCount={passkeyCount}
           />
         </div>
 

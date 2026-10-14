@@ -50,6 +50,13 @@
       "when": 1791772511023,
       "tag": "0006_clerk_users",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791952481617,
+      "tag": "0007_member_recovery",
+      "breakpoints": true
     }
   ]
 }
