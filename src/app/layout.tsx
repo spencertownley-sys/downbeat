@@ -3,7 +3,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { isAuthConfigured } from "@/lib/auth-config";
+import { hasClerkProvider } from "@/lib/auth-config";
 
 export const metadata: Metadata = {
   title: {
@@ -37,7 +37,7 @@ export default function RootLayout({
             __html: `try{if(localStorage.theme==='dark'||(!('theme' in localStorage)&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark')}}catch(e){}`,
           }}
         />
-        {isAuthConfigured() ? (
+        {hasClerkProvider() ? (
           <ClerkProvider
             signInUrl="/login"
             signUpUrl="/signup"
