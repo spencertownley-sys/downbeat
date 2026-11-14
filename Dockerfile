@@ -1,11 +1,17 @@
 FROM node:20-alpine
 
 WORKDIR /app
+# Build and run as the unprivileged `node` user that ships with the image, so
+# a compromise of the Node process doesn't get root in the container. Owning
+# the files from the start avoids a `chown -R` layer that would double the
+# size of node_modules.
+RUN chown node:node /app
+USER node
 
-COPY package.json package-lock.json ./
+COPY --chown=node:node package.json package-lock.json ./
 RUN npm ci
 
-COPY . .
+COPY --chown=node:node . .
 RUN chmod +x docker-start.sh
 
 ENV DATABASE_URL=postgresql://user:pass@localhost:5432/placeholder

@@ -73,7 +73,9 @@ email; they move to you the next time you load the dashboard.
 npm run db:migrate
 ```
 
-The Docker image runs migrations and the (idempotent) seed on every start.
+The Docker image runs migrations on every start, as the unprivileged `node`
+user. It seeds demo data only when `SEED_DEMO=1` is set; never set that in
+production.
 
 ### 4. Seed (optional)
 
