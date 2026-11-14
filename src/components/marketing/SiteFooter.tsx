@@ -19,6 +19,9 @@ export function SiteFooter() {
           <Link href="/cookies" className="hover:text-foreground">
             Cookies
           </Link>
+          <button type="button" data-cookie-settings className="hover:text-foreground">
+            Cookie settings
+          </button>
         </nav>
         <p>&copy; {new Date().getFullYear()} Downbeat. Made for bands with busy lives.</p>
       </div>

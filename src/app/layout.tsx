@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
@@ -31,6 +32,9 @@ export default function RootLayout({
 
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="stylesheet" href="/cookie-banner.css" />
+      </head>
       <body className="min-h-screen font-sans antialiased">
         <script
           dangerouslySetInnerHTML={{
@@ -49,6 +53,14 @@ export default function RootLayout({
         ) : (
           content
         )}
+        {/* Notice mode: only necessary storage exists, so nothing is blocked. */}
+        <Script
+          src="/cookie-banner.js"
+          strategy="afterInteractive"
+          data-cookie-banner
+          data-mode="notice"
+          data-policy-url="/cookies"
+        />
       </body>
     </html>
   );
