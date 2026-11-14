@@ -1,7 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { SignUp } from "@clerk/nextjs";
 import { AuthUnavailable } from "@/components/auth/AuthUnavailable";
 import { isAuthConfigured } from "@/lib/auth-config";
+
+export const metadata: Metadata = {
+  alternates: { canonical: "/signup" },
+};
 
 export const dynamic = "force-dynamic";
 

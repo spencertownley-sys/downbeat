@@ -4,6 +4,7 @@ import { LegalList, LegalPage, LegalSection, Placeholder } from "@/components/le
 
 export const metadata: Metadata = {
   title: "Terms of service",
+  alternates: { canonical: "/terms" },
   description: "The rules for using Downbeat, the rehearsal scheduler for bands.",
 };
 

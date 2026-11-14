@@ -3,6 +3,7 @@ import { LegalList, LegalPage, LegalSection, LegalTable, Placeholder } from "@/c
 
 export const metadata: Metadata = {
   title: "Cookie policy",
+  alternates: { canonical: "/cookies" },
   description: "Every cookie and browser storage item Downbeat uses, and the companies your browser contacts.",
 };
 

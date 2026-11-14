@@ -4,6 +4,7 @@ import { LegalList, LegalPage, LegalSection, LegalTable, Placeholder } from "@/c
 
 export const metadata: Metadata = {
   title: "Privacy policy",
+  alternates: { canonical: "/privacy" },
   description: "What Downbeat collects from band leaders and band members, why, who processes it, and how to delete it.",
 };
 

@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { hasClerkProvider } from "@/lib/auth-config";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://trydownbeat.app"),
   title: {
     default: "Downbeat — Find time to play",
     template: "%s · Downbeat",
