@@ -1,4 +1,6 @@
-"use server";
+// Internal helpers for the Server Actions, not actions themselves: no
+// "use server" here, so they can never be called from the browser.
+import "server-only";
 
 import { getCurrentProfile } from "@/lib/auth";
 import { ValidationError, type ActionResult } from "@/lib/action-errors";
