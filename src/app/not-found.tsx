@@ -1,5 +1,10 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+
+export const metadata: Metadata = {
+  title: "Page not found",
+};
 
 export default function NotFound() {
   return (
@@ -10,7 +15,7 @@ export default function NotFound() {
         The page you&apos;re looking for doesn&apos;t exist or may have been removed.
       </p>
       <Button variant="outline" size="sm" asChild>
-        <Link href="/">Back to dashboard</Link>
+        <Link href="/">Back to home</Link>
       </Button>
     </div>
   );

@@ -5,6 +5,7 @@ import { AuthUnavailable } from "@/components/auth/AuthUnavailable";
 import { isAuthConfigured } from "@/lib/auth-config";
 
 export const metadata: Metadata = {
+  title: "Sign in",
   alternates: { canonical: "/login" },
 };
 

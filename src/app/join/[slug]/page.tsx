@@ -8,6 +8,7 @@ import { describeEvent } from "@/lib/band-settings";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const metadata: Metadata = {
+  title: "Join your band",
   // Personal and invite links are credentials: keep them out of search results.
   robots: { index: false, follow: false },
 };

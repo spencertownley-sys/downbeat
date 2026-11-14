@@ -20,6 +20,7 @@ import { ConfirmActionButton } from "@/components/shared/ConfirmActionButton";
 import { leaveBand } from "@/app/actions/members";
 
 export const metadata: Metadata = {
+  title: "Your availability",
   // Personal and invite links are credentials: keep them out of search results.
   robots: { index: false, follow: false },
 };

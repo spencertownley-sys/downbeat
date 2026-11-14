@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { RejoinConfirm } from "@/components/join/RejoinConfirm";
 
 export const metadata: Metadata = {
+  title: "Get back to your spot",
   // Personal and invite links are credentials: keep them out of search results.
   robots: { index: false, follow: false },
 };
