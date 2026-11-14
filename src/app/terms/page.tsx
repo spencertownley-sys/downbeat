@@ -72,14 +72,24 @@ export default function TermsPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="7. Price">
+      <LegalSection id="price" title="7. Price and the free plan">
         <p>
           Downbeat is free to use. The pricing section on the{" "}
           <Link href="/#pricing" className={linkClass}>
             home page
           </Link>{" "}
-          describes the current plan. There are no payments, so there is nothing to bill, refund or
-          cancel.
+          describes the current plan. The free plan includes:
+        </p>
+        <LegalList>
+          <li>unlimited bands, with up to 50 members in each band;</li>
+          <li>weekly and date-specific availability;</li>
+          <li>one invite link per band, with no accounts or logins for band members.</li>
+        </LegalList>
+        <p>
+          There are no payments, so there is nothing to bill, refund or cancel. If paid plans are ever
+          added, <Placeholder>confirm what stays free, for example: everything listed above stays free for existing bands</Placeholder>,
+          and the change is announced on this site and by email to band leaders at least{" "}
+          <Placeholder>notice period, for example 30 days</Placeholder> before it applies.
         </p>
       </LegalSection>
 

@@ -147,7 +147,7 @@ export default function LandingPage() {
             <div className="mx-auto mt-10 max-w-sm rounded-2xl border bg-card p-8 text-center shadow-sm">
               <p className="text-sm font-semibold uppercase tracking-wide text-primary">Free</p>
               <p className="mt-2 text-4xl font-bold">$0</p>
-              <p className="mt-1 text-sm text-muted-foreground">for your whole band, forever</p>
+              <p className="mt-1 text-sm text-muted-foreground">for your whole band</p>
               <ul className="mt-6 space-y-2 text-sm text-muted-foreground">
                 <li>Unlimited bands, up to 50 members each</li>
                 <li>Weekly &amp; date-specific availability</li>
@@ -156,6 +156,11 @@ export default function LandingPage() {
               <Button className="mt-6 w-full" asChild>
                 <Link href="/signup">Get started free</Link>
               </Button>
+              <p className="mt-4 text-xs text-muted-foreground">
+                <Link href="/terms#price" className="underline underline-offset-2 hover:text-foreground">
+                  What the free plan includes
+                </Link>
+              </p>
             </div>
           </div>
         </section>
