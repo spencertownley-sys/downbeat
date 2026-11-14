@@ -17,6 +17,15 @@ export const metadata: Metadata = {
   // Added to an iPhone Home Screen, Downbeat opens as an app at the page it was
   // saved from (a member's own availability page) and keeps its storage.
   appleWebApp: { capable: true, title: "Downbeat", statusBarStyle: "default" },
+  // The image comes from src/app/opengraph-image.png (1200x630).
+  openGraph: {
+    type: "website",
+    siteName: "Downbeat",
+    title: "Downbeat: find time to rehearse",
+    description:
+      "Share one link, everyone taps their availability, no logins for the band.",
+  },
+  twitter: { card: "summary_large_image" },
 };
 
 export default function RootLayout({

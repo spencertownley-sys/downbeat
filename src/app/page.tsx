@@ -41,6 +41,13 @@ const USE_CASES = [
 
 export const metadata: Metadata = {
   alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    siteName: "Downbeat",
+    url: "/",
+    title: "Downbeat: find time to rehearse",
+    description: "Share one link, everyone taps their availability, no logins for the band.",
+  },
 };
 
 export default function LandingPage() {
