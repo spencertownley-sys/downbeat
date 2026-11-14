@@ -62,3 +62,7 @@
 /* Cookie notice (public/cookie-banner.css): follow the app's light and .dark tokens.
    `html .cb` outranks the kit's own prefers-color-scheme defaults. */
 html .cb { --cb-bg: hsl(var(--card)); --cb-fg: hsl(var(--card-foreground)); --cb-muted: hsl(var(--muted-foreground)); --cb-border: hsl(var(--border)); --cb-accent: hsl(var(--primary)); --cb-accent-fg: hsl(var(--primary-foreground)); --cb-radius: 0.75rem; --cb-font: inherit; }
+/* While the notice is open, leave room under the page so it never sits on top
+   of the last controls (such as "Leave this event") once scrolled to the end. */
+body:has(> .cb) { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+@media (max-width: 640px) { body:has(> .cb) { padding-bottom: calc(176px + env(safe-area-inset-bottom, 0px)); } }
