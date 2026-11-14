@@ -16,11 +16,23 @@ import {
   finishPasskeyRegistration,
   finishPasskeySignIn,
   relyingPartyFor,
+  relyingPartyForOrigin,
   startPasskeyRegistration,
   startPasskeySignIn,
 } from "@/lib/passkeys";
+import { rateLimit, rateLimitByIp } from "@/lib/rate-limit";
 
+/**
+ * In production the origin comes from WEBAUTHN_ORIGIN (or the app's public
+ * URL), never from request headers. Locally, where the host varies, it is
+ * read from the request.
+ */
 async function relyingParty() {
+  const production = process.env.NODE_ENV === "production";
+  const origin = process.env.WEBAUTHN_ORIGIN || (production ? process.env.NEXT_PUBLIC_APP_URL : undefined);
+  if (origin) return relyingPartyForOrigin(origin, process.env.WEBAUTHN_RP_ID);
+  if (production) throw new Error("Set WEBAUTHN_ORIGIN to use passkeys in production.");
+
   const h = await headers();
   const host = h.get("host");
   if (!host) throw new Error("Request has no Host header.");
@@ -52,6 +64,7 @@ export async function passkeyRegistrationOptions(
 ): Promise<ActionResult<PublicKeyCredentialCreationOptionsJSON>> {
   try {
     const { member, bandName } = await requireMember(slug, token);
+    await rateLimit("passkey", `member:${member.id}`);
     return { ok: true, data: await startPasskeyRegistration(member, bandName, await relyingParty()) };
   } catch (err) {
     return toActionError(err);
@@ -76,6 +89,7 @@ export async function passkeySignInOptions(
   slug: string
 ): Promise<ActionResult<PublicKeyCredentialRequestOptionsJSON>> {
   try {
+    await rateLimitByIp("passkey");
     const band = await requireBand(slug);
     return { ok: true, data: await startPasskeySignIn(band.id, await relyingParty()) };
   } catch (err) {

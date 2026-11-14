@@ -5,6 +5,9 @@ import { describeSchedule } from "@/lib/band-settings";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, Users } from "lucide-react";
+import { ConfirmActionButton } from "@/components/shared/ConfirmActionButton";
+import { ExportDataButton } from "@/components/dashboard/ExportDataButton";
+import { deleteMyAccount } from "@/app/actions/account";
 
 export default async function DashboardPage() {
   const profile = await getCurrentProfile();
@@ -87,6 +90,30 @@ export default async function DashboardPage() {
             ))}
           </div>
         </div>
+      )}
+
+      {profile && (
+        <section className="rounded-xl border p-4 sm:p-6">
+          <h2 className="text-lg font-semibold tracking-tight">Your account and data</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Download everything Downbeat holds about you, or delete your account. Deleting it also
+            deletes every event you run, with its members and their availability.
+          </p>
+          <div className="mt-4 flex flex-wrap items-start gap-3">
+            <ExportDataButton />
+            <ConfirmActionButton
+              action={deleteMyAccount}
+              label="Delete my account"
+              variant="destructive"
+              title="Delete your account?"
+              description="Your account and every event you run, with all members and availability, are deleted for good. This can't be undone."
+              confirmLabel="Delete my account"
+              pendingLabel="Deleting..."
+              redirectTo="/"
+              hardRedirect
+            />
+          </div>
+        </section>
       )}
     </div>
   );

@@ -53,6 +53,7 @@ export function LandingGridPreview() {
           <button
             key={status}
             type="button"
+            aria-pressed={active === status}
             onClick={() => setActive(status)}
             className={cn(
               "rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors",
@@ -86,6 +87,9 @@ export function LandingGridPreview() {
                     <button
                       key={key}
                       type="button"
+                      aria-label={`${d.label} ${d.sub}, ${formatTimeSlot(slot)}: ${
+                        status ? STATUS_META[status].label : "no answer yet"
+                      }`}
                       onClick={() => setCell(key)}
                       className={cn(
                         "h-9 rounded-md transition-colors sm:h-10",

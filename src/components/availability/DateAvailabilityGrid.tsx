@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { setAvailabilityBulk, type AvailabilityUpdate } from "@/app/actions/availability";
+import { LIMITS } from "@/lib/schemas";
 import { ALL_DAY_SLOT, AVAILABILITY_STATUSES, STATUS_META, UNFILLED_META, formatTimeSlot } from "@/lib/constants";
 import { buildGridLayout, calendarDayLabel, type GridCell, type GridLayout } from "@/lib/grid-layout";
 import type { AvailabilityStatus, DateColumn, MemberGrid } from "@/types";
@@ -207,12 +208,18 @@ export function DateAvailabilityGrid({
   async function handleSave() {
     if (dirtyUpdates.length === 0) return;
     setSaving(true);
-    const result = await setAvailabilityBulk(slug, token, dirtyUpdates);
-    setSaving(false);
-    if (!result.ok) {
-      toast({ title: "Couldn't save", description: result.error, variant: "destructive" });
-      return;
+    // The server takes at most LIMITS.availabilityUpdates changes per call, so
+    // a big "fill all" goes up in batches. Upserts make a retry after a
+    // partial failure safe.
+    for (let i = 0; i < dirtyUpdates.length; i += LIMITS.availabilityUpdates) {
+      const result = await setAvailabilityBulk(slug, token, dirtyUpdates.slice(i, i + LIMITS.availabilityUpdates));
+      if (!result.ok) {
+        setSaving(false);
+        toast({ title: "Couldn't save", description: result.error, variant: "destructive" });
+        return;
+      }
     }
+    setSaving(false);
     setSavedGrid(localGrid);
     toast({ title: "Saved", description: "Your availability is up to date." });
   }

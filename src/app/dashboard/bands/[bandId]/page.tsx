@@ -10,6 +10,8 @@ import { StatusLegend } from "@/components/availability/StatusLegend";
 import { CopyLinkButton } from "@/components/shared/CopyLinkButton";
 import { DayLabelsEditor } from "@/components/dashboard/DayLabelsEditor";
 import { RejoinLinkButton } from "@/components/dashboard/RejoinLinkButton";
+import { ConfirmActionButton } from "@/components/shared/ConfirmActionButton";
+import { removeMember } from "@/app/actions/members";
 import { Pencil } from "lucide-react";
 import { format } from "date-fns";
 
@@ -112,6 +114,16 @@ export default async function BandDetailPage({ params }: { params: Promise<{ ban
                       Last updated {format(new Date(member.lastSeenAt ?? member.createdAt!), "MMM d")}
                     </span>
                     <RejoinLinkButton bandId={band.id} memberId={member.id} memberName={member.name} />
+                    <ConfirmActionButton
+                      action={removeMember.bind(null, band.id, member.id)}
+                      label="Remove"
+                      variant="ghost"
+                      className="h-7 px-2 text-xs"
+                      title={`Remove ${member.name}?`}
+                      description={`This deletes ${member.name}'s details and availability from ${band.name}, and their personal link stops working.`}
+                      confirmLabel="Remove member"
+                      pendingLabel="Removing..."
+                    />
                   </div>
                 </li>
               ))}

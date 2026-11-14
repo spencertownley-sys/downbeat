@@ -85,6 +85,8 @@ export function formatTimeSlot(hhmm: string): string {
 
 // ---------------------------------------------------------------------------
 // Availability status — a 4-tier palette the member picks from directly.
+// Shades are chosen so the chip text meets WCAG AA contrast (4.5:1): white on
+// red-600, emerald-700 and blue-600, dark text on amber-400.
 // ---------------------------------------------------------------------------
 export const AVAILABILITY_STATUSES = ["conflict", "maybe", "available", "preferred"] as const;
 export type AvailabilityStatus = (typeof AVAILABILITY_STATUSES)[number];
@@ -95,23 +97,23 @@ export const STATUS_META: Record<
 > = {
   conflict: {
     label: "Conflict",
-    cellClass: "bg-red-500 hover:bg-red-600 text-white",
-    dotClass: "bg-red-500",
+    cellClass: "bg-red-600 hover:bg-red-700 text-white",
+    dotClass: "bg-red-600",
   },
   maybe: {
     label: "Maybe",
-    cellClass: "bg-amber-400 hover:bg-amber-500 text-white",
+    cellClass: "bg-amber-400 hover:bg-amber-500 text-amber-950",
     dotClass: "bg-amber-400",
   },
   available: {
     label: "Available",
-    cellClass: "bg-emerald-500 hover:bg-emerald-600 text-white",
-    dotClass: "bg-emerald-500",
+    cellClass: "bg-emerald-700 hover:bg-emerald-800 text-white",
+    dotClass: "bg-emerald-700",
   },
   preferred: {
     label: "Preferred",
-    cellClass: "bg-blue-500 hover:bg-blue-600 text-white",
-    dotClass: "bg-blue-500",
+    cellClass: "bg-blue-600 hover:bg-blue-700 text-white",
+    dotClass: "bg-blue-600",
   },
 };
 

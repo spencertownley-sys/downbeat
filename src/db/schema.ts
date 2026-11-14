@@ -7,6 +7,7 @@ import {
   timestamp,
   index,
   unique,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 
@@ -113,6 +114,9 @@ export const bandMembers = pgTable(
     bandIdx: index("idx_band_members_band").on(table.bandId),
     tokenIdx: index("idx_band_members_token").on(table.memberToken),
     profileIdx: index("idx_band_members_profile").on(table.profileId),
+    // Names are unique per band, ignoring case; the database enforces it so
+    // two simultaneous joins can't both take the same name.
+    bandNameUnique: uniqueIndex("uq_band_members_band_name").on(table.bandId, sql`lower(${table.name})`),
   })
 );
 
@@ -171,6 +175,17 @@ export const webauthnChallenges = pgTable("webauthn_challenges", {
   memberId: uuid("member_id").references(() => bandMembers.id, { onDelete: "cascade" }),
   bandId: uuid("band_id").references(() => bands.id, { onDelete: "cascade" }),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+});
+
+// ---------------------------------------------------------------------------
+// rate_limits — fixed-window counters for public actions (joining, recovery,
+// passkey sign-in). `key` is a SHA-256 of action, scope and client IP, so no
+// raw IP address is stored. Rows older than a day are deleted.
+// ---------------------------------------------------------------------------
+export const rateLimits = pgTable("rate_limits", {
+  key: text("key").primaryKey(),
+  count: integer("count").notNull(),
+  windowStart: timestamp("window_start", { withTimezone: true }).notNull(),
 });
 
 // ---------------------------------------------------------------------------

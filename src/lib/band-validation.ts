@@ -1,4 +1,5 @@
 import { SCHEDULE_TYPES, LOCATION_TYPES, type ScheduleType, type LocationType } from "@/lib/constants";
+import { LIMITS, isSupportedTimezone, isoDate, rangeLengthDays } from "@/lib/schemas";
 
 export interface BandSettingsInput {
   name: string;
@@ -29,14 +30,32 @@ export function validateSettings(input: BandSettingsInput): string[] {
     errors.push("Pick a location type.");
   }
 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.startDate ?? "")) errors.push("Invalid start date.");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.endDate ?? "")) errors.push("Invalid end date.");
-  if (
-    /^\d{4}-\d{2}-\d{2}$/.test(input.startDate ?? "") &&
-    /^\d{4}-\d{2}-\d{2}$/.test(input.endDate ?? "") &&
-    input.endDate < input.startDate
-  ) {
-    errors.push("End date can't be before the start date.");
+  if ((input.description?.trim().length ?? 0) > LIMITS.description) {
+    errors.push(`Keep the description under ${LIMITS.description} characters.`);
+  }
+  if ((input.location?.trim().length ?? 0) > LIMITS.location) {
+    errors.push(`Keep the location under ${LIMITS.location} characters.`);
+  }
+  if (typeof input.timezone !== "string" || !isSupportedTimezone(input.timezone)) {
+    errors.push("Pick a time zone.");
+  }
+
+  const startOk = isoDate.safeParse(input.startDate).success;
+  const endOk = isoDate.safeParse(input.endDate).success;
+  if (!startOk) errors.push("Invalid start date.");
+  if (!endOk) errors.push("Invalid end date.");
+  if (startOk) {
+    const year = Number(input.startDate.slice(0, 4));
+    if (year < LIMITS.minYear || year > LIMITS.maxYear) {
+      errors.push(`Pick a start date between ${LIMITS.minYear} and ${LIMITS.maxYear}.`);
+    }
+  }
+  if (startOk && endOk) {
+    if (input.endDate < input.startDate) {
+      errors.push("End date can't be before the start date.");
+    } else if (rangeLengthDays(input.startDate, input.endDate) > LIMITS.maxRangeDays) {
+      errors.push("An event can cover at most a year. Pick a shorter date range.");
+    }
   }
 
   if (!input.activeDays || input.activeDays.length === 0) {

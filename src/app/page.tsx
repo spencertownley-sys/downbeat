@@ -1,7 +1,9 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/brand/Logo";
 import { LandingGridPreview } from "@/components/marketing/LandingGridPreview";
+import { SiteFooter } from "@/components/marketing/SiteFooter";
 import {
   CalendarCheck,
   Link2,
@@ -36,6 +38,17 @@ const USE_CASES = [
   { icon: Plane, label: "Planning a tour" },
   { icon: Music, label: "Finding a sub" },
 ];
+
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    siteName: "Downbeat",
+    url: "/",
+    title: "Downbeat: find time to rehearse",
+    description: "Share one link, everyone taps their availability, no logins for the band.",
+  },
+};
 
 export default function LandingPage() {
   return (
@@ -141,26 +154,26 @@ export default function LandingPage() {
             <div className="mx-auto mt-10 max-w-sm rounded-2xl border bg-card p-8 text-center shadow-sm">
               <p className="text-sm font-semibold uppercase tracking-wide text-primary">Free</p>
               <p className="mt-2 text-4xl font-bold">$0</p>
-              <p className="mt-1 text-sm text-muted-foreground">for your whole band, forever</p>
+              <p className="mt-1 text-sm text-muted-foreground">for your whole band</p>
               <ul className="mt-6 space-y-2 text-sm text-muted-foreground">
-                <li>Unlimited bands and members</li>
+                <li>Unlimited bands, up to 50 members each</li>
                 <li>Weekly &amp; date-specific availability</li>
                 <li>One link — no logins for members</li>
               </ul>
               <Button className="mt-6 w-full" asChild>
                 <Link href="/signup">Get started free</Link>
               </Button>
+              <p className="mt-4 text-xs text-muted-foreground">
+                <Link href="/terms#price" className="underline underline-offset-2 hover:text-foreground">
+                  What the free plan includes
+                </Link>
+              </p>
             </div>
           </div>
         </section>
       </main>
 
-      <footer className="border-t py-10">
-        <div className="container flex flex-col items-center justify-between gap-4 text-sm text-muted-foreground sm:flex-row">
-          <Logo />
-          <p>&copy; {new Date().getFullYear()} Downbeat. Made for bands with busy lives.</p>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

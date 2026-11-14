@@ -2,6 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth";
 import { getBandSettingsForLeader } from "@/db/queries/bands";
 import { BandForm } from "@/components/dashboard/BandForm";
+import { ConfirmActionButton } from "@/components/shared/ConfirmActionButton";
+import { deleteBand } from "@/app/actions/bands";
 import type { BandSettingsInput } from "@/app/actions/bands";
 import type { ScheduleType, LocationType } from "@/lib/constants";
 
@@ -38,6 +40,24 @@ export default async function EditBandPage({ params }: { params: Promise<{ bandI
       <div className="mt-8">
         <BandForm mode="edit" bandId={band.id} initialValues={initialValues} />
       </div>
+      <section className="mt-12 rounded-xl border border-destructive/40 p-4 sm:p-6">
+        <h2 className="font-semibold">Delete this event</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Deletes {band.name}, its invite link, every member and all their availability. This can&apos;t
+          be undone.
+        </p>
+        <ConfirmActionButton
+          action={deleteBand.bind(null, band.id)}
+          label="Delete event"
+          variant="destructive"
+          className="mt-4"
+          title={`Delete ${band.name}?`}
+          description="The invite link and every member's personal link stop working, and all availability is deleted for good."
+          confirmLabel="Delete event"
+          pendingLabel="Deleting..."
+          redirectTo="/dashboard"
+        />
+      </section>
     </div>
   );
 }

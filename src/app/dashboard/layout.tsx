@@ -1,9 +1,14 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth";
 import { UserButton } from "@clerk/nextjs";
 import { Logo } from "@/components/brand/Logo";
 import { isAuthConfigured } from "@/lib/auth-config";
+
+export const metadata: Metadata = {
+  title: "Dashboard",
+};
 
 export const dynamic = "force-dynamic";
 

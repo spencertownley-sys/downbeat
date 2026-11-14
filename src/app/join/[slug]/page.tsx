@@ -1,9 +1,17 @@
+import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getBandBySlug } from "@/db/queries/bands";
 import { JoinForm } from "@/components/join/JoinForm";
 import { Logo } from "@/components/brand/Logo";
 import { describeEvent } from "@/lib/band-settings";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+
+export const metadata: Metadata = {
+  title: "Join your band",
+  // Personal and invite links are credentials: keep them out of search results.
+  robots: { index: false, follow: false },
+};
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +37,11 @@ export default async function JoinPage({ params }: { params: Promise<{ slug: str
           <JoinForm slug={slug} />
         </CardContent>
       </Card>
+      <p className="mt-4 text-xs text-muted-foreground">
+        <Link href="/privacy" className="underline underline-offset-2 hover:text-foreground">
+          Privacy
+        </Link>
+      </p>
     </div>
   );
 }

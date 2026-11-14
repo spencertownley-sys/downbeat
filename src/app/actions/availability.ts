@@ -4,9 +4,11 @@ import { revalidatePath } from "next/cache";
 import { sql, or, and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { availability, bandMembers, bands } from "@/db/schema";
-import { AVAILABILITY_STATUSES, type AvailabilityStatus } from "@/lib/constants";
+import { type AvailabilityStatus } from "@/lib/constants";
+import { LIMITS, availabilityUpdates } from "@/lib/schemas";
 import { toActionError } from "./helpers";
 import { ValidationError, type ActionResult } from "@/lib/action-errors";
+import { rateLimit } from "@/lib/rate-limit";
 
 export interface AvailabilityUpdate {
   date: string; // yyyy-MM-dd
@@ -22,7 +24,7 @@ async function requireMember(slug: string, token: string) {
     where: and(eq(bandMembers.memberToken, token), eq(bandMembers.bandId, band.id)),
   });
   if (!member) throw new ValidationError("That link doesn't look right.");
-  return member;
+  return { band, member };
 }
 
 /** Validates the member token, then upserts all cell changes in one batch. */
@@ -32,15 +34,21 @@ export async function setAvailabilityBulk(
   updates: AvailabilityUpdate[]
 ): Promise<ActionResult> {
   try {
-    const member = await requireMember(slug, token);
+    const { band, member } = await requireMember(slug, token);
     if (!updates || updates.length === 0) return { ok: true };
+    await rateLimit("availability", `member:${member.id}`);
 
-    for (const u of updates) {
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(u.date)) throw new ValidationError("Invalid date.");
-      if (!u.timeSlot) throw new ValidationError("Invalid time slot.");
-      if (u.status !== null && !AVAILABILITY_STATUSES.includes(u.status)) {
-        throw new ValidationError("Unknown availability status.");
-      }
+    const parsed = availabilityUpdates.safeParse(updates);
+    if (!parsed.success) {
+      throw new ValidationError(
+        Array.isArray(updates) && updates.length > LIMITS.availabilityUpdates
+          ? "That's too many changes at once. Save in smaller batches."
+          : "Some of those changes weren't valid. Reload the page and try again."
+      );
+    }
+    updates = parsed.data;
+    if (updates.some((u) => u.date < band.startDate || u.date > band.endDate)) {
+      throw new ValidationError("Those dates are outside this event's date range.");
     }
 
     const sets = updates.filter((u) => u.status !== null) as (AvailabilityUpdate & {

@@ -25,6 +25,7 @@ const {
   finishPasskeyRegistration,
   finishPasskeySignIn,
   relyingPartyFor,
+  relyingPartyForOrigin,
   startPasskeyRegistration,
   startPasskeySignIn,
 } = await import("./passkeys");
@@ -74,6 +75,19 @@ beforeEach(async () => {
   alex = await insertMember(holder.db, band.id, "Alex");
 });
 
+describe("relyingPartyForOrigin", () => {
+  it("uses only the configured origin", () => {
+    expect(relyingPartyForOrigin("https://trydownbeat.app")).toEqual({
+      rpID: "trydownbeat.app",
+      origins: ["https://trydownbeat.app"],
+    });
+    expect(relyingPartyForOrigin("https://trydownbeat.app/", "trydownbeat.app").origins).toEqual([
+      "https://trydownbeat.app",
+    ]);
+    expect(() => relyingPartyForOrigin("https://evil.example", "trydownbeat.app")).toThrow();
+  });
+});
+
 describe("relyingPartyFor", () => {
   it("binds passkeys to the bare domain so www works too", () => {
     expect(relyingPartyFor("trydownbeat.app", "https")).toEqual({
@@ -98,7 +112,14 @@ describe("saving a passkey", () => {
     expect(saved).toMatchObject({ memberId: alex.id, credentialId: "cred-1", counter: 0, transports: ["internal"] });
     expect(await countPasskeys(alex.id)).toBe(1);
     expect(webauthn.generateRegistrationOptions).toHaveBeenCalledWith(
-      expect.objectContaining({ rpID: "trydownbeat.app", userName: "Alex · Basement Tapes" })
+      expect.objectContaining({
+        rpID: "trydownbeat.app",
+        userName: "Alex · Basement Tapes",
+        authenticatorSelection: expect.objectContaining({ userVerification: "required" }),
+      })
+    );
+    expect(webauthn.verifyRegistrationResponse).toHaveBeenCalledWith(
+      expect.objectContaining({ requireUserVerification: true })
     );
   });
 
@@ -172,7 +193,11 @@ describe("signing in with a passkey", () => {
         expectedChallenge: challenge,
         expectedRPID: "trydownbeat.app",
         credential: expect.objectContaining({ id: "cred-1", counter: 0 }),
+        requireUserVerification: true,
       })
+    );
+    expect(webauthn.generateAuthenticationOptions).toHaveBeenCalledWith(
+      expect.objectContaining({ userVerification: "required" })
     );
   });
 

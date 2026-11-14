@@ -1,17 +1,21 @@
+import { readFileSync } from "node:fs";
+import { sql } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { bandMembers } from "@/db/schema";
+import { bandMembers, profiles, rateLimits } from "@/db/schema";
 import { createTestDb, getMember, insertBand, insertMember, insertPreClerkLeader, resetTestDb, type TestDb } from "@/test/db";
 
-const holder = vi.hoisted(() => ({ db: null as unknown as TestDb, profile: null as unknown }));
+const holder = vi.hoisted(() => ({ db: null as unknown as TestDb, profile: null as unknown, ip: "203.0.113.1" }));
 vi.mock("@/db", () => ({
   get db() {
     return holder.db;
   },
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/headers", () => ({ headers: async () => new Headers({ "x-forwarded-for": holder.ip }) }));
 vi.mock("@/lib/auth", () => ({ getCurrentProfile: async () => holder.profile }));
+vi.mock("@/lib/auth-config", () => ({ isAuthConfigured: () => true }));
 
-const { joinBand, updateMemberProfile } = await import("./members");
+const { claimMemberRow, joinBand, leaveBand, removeMember, rotateMemberToken, updateMemberProfile } = await import("./members");
 const { createMemberRejoinLink, newRecoveryCode, recoverMember, spendRejoinLink } = await import("./recovery");
 const { hashRecoveryCode } = await import("@/lib/recovery");
 
@@ -27,6 +31,7 @@ beforeEach(async () => {
   leader = await insertPreClerkLeader(holder.db, []);
   band = await insertBand(holder.db, leader.id, "Basement Tapes");
   holder.profile = leader;
+  holder.ip = "203.0.113.1";
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
@@ -144,5 +149,149 @@ describe("recovery actions", () => {
     holder.profile = null;
 
     expect(await createMemberRejoinLink(band.id, alex.id)).toEqual({ ok: false, error: "You must be signed in." });
+  });
+});
+
+describe("removing members", () => {
+  it("lets the band's leader remove a member", async () => {
+    const alex = await insertMember(holder.db, band.id, "Alex");
+
+    expect(await removeMember(band.id, alex.id)).toEqual({ ok: true });
+    expect(await getMember(holder.db, alex.id)).toBeUndefined();
+  });
+
+  it("won't let another leader remove someone, even by pairing their own band", async () => {
+    const alex = await insertMember(holder.db, band.id, "Alex");
+    const strangersBand = await insertBand(holder.db, leader.id, "Stranger's Band");
+
+    holder.profile = { ...leader, id: crypto.randomUUID() };
+    expect((await removeMember(band.id, alex.id)).ok).toBe(false);
+    holder.profile = leader;
+    expect((await removeMember(strangersBand.id, alex.id)).ok).toBe(false);
+    expect(await getMember(holder.db, alex.id)).toBeDefined();
+  });
+
+  it("lets a member leave with their own link only", async () => {
+    const alex = await insertMember(holder.db, band.id, "Alex");
+    const jordan = await insertMember(holder.db, band.id, "Jordan");
+
+    expect((await leaveBand(band.slug, "00000000-0000-4000-8000-000000000000")).ok).toBe(false);
+    expect(await leaveBand(band.slug, alex.memberToken)).toEqual({ ok: true });
+    expect(await getMember(holder.db, alex.id)).toBeUndefined();
+    expect(await getMember(holder.db, jordan.id)).toBeDefined();
+  });
+});
+
+describe("rate limits", () => {
+  it("refuses the 11th join from one IP for one band within the hour", async () => {
+    for (let i = 1; i <= 10; i++) expect((await joinBand(band.slug, `Player ${i}`)).ok).toBe(true);
+
+    expect(await joinBand(band.slug, "Player 11")).toEqual({ ok: false, error: "Too many attempts. Try again later." });
+
+    // Another visitor, or the same visitor on another band, isn't affected.
+    holder.ip = "203.0.113.2";
+    expect((await joinBand(band.slug, "Player 11")).ok).toBe(true);
+    holder.ip = "203.0.113.1";
+    const other = await insertBand(holder.db, leader.id, "Other Band");
+    expect((await joinBand(other.slug, "Player 1")).ok).toBe(true);
+  });
+
+  it("starts counting again once the window has passed", async () => {
+    for (let i = 1; i <= 10; i++) await joinBand(band.slug, `Player ${i}`);
+    await holder.db.update(rateLimits).set({ windowStart: new Date(Date.now() - 2 * 60 * 60 * 1000) });
+
+    expect((await joinBand(band.slug, "Player 11")).ok).toBe(true);
+  });
+
+  it("stores no raw IP address", async () => {
+    await joinBand(band.slug, "Alex");
+    const rows = await holder.db.select().from(rateLimits);
+    expect(rows.length).toBeGreaterThan(0);
+    expect(JSON.stringify(rows)).not.toContain("203.0.113.1");
+  });
+
+  it("limits recovery code guesses", async () => {
+    for (let i = 0; i < 10; i++) await recoverMember(band.slug, "AAAA-BBBB-CCCC");
+    expect(await recoverMember(band.slug, "AAAA-BBBB-CCCC")).toEqual({
+      ok: false,
+      error: "Too many attempts. Try again later.",
+    });
+  });
+
+  it("refuses the 51st member of a band", async () => {
+    for (let i = 1; i <= 50; i++) await insertMember(holder.db, band.id, `Member ${i}`);
+
+    const result = await joinBand(band.slug, "One Too Many");
+    expect(result).toEqual({ ok: false, error: expect.stringMatching(/50 members/) });
+    expect(await holder.db.select().from(bandMembers)).toHaveLength(50);
+  });
+});
+
+describe("rotateMemberToken", () => {
+  it("gives the member a new link and the old one stops working", async () => {
+    const alex = await insertMember(holder.db, band.id, "Alex");
+
+    const result = await rotateMemberToken(band.slug, alex.memberToken);
+    if (!result.ok || !result.data) throw new Error("expected a new token");
+
+    expect(result.data.token).not.toBe(alex.memberToken);
+    expect((await getMember(holder.db, alex.id)).memberToken).toBe(result.data.token);
+    expect((await rotateMemberToken(band.slug, alex.memberToken)).ok).toBe(false);
+    expect((await updateMemberProfile(band.slug, alex.memberToken, { name: "Alex" })).ok).toBe(false);
+  });
+});
+
+describe("claimMemberRow", () => {
+  it("links an unlinked spot to the signed-in account, and is safe to repeat", async () => {
+    const alex = await insertMember(holder.db, band.id, "Alex");
+
+    expect(await claimMemberRow(band.slug, alex.memberToken)).toEqual({ ok: true });
+    expect(await claimMemberRow(band.slug, alex.memberToken)).toEqual({ ok: true });
+    expect((await getMember(holder.db, alex.id)).profileId).toBe(leader.id);
+  });
+
+  it("won't move a spot that is already linked to someone else's account", async () => {
+    const alex = await insertMember(holder.db, band.id, "Alex");
+    await claimMemberRow(band.slug, alex.memberToken);
+    const [intruder] = await holder.db
+      .insert(profiles)
+      .values({ id: crypto.randomUUID(), fullName: "Someone Else" })
+      .returning();
+    holder.profile = intruder;
+
+    expect(await claimMemberRow(band.slug, alex.memberToken)).toEqual({
+      ok: false,
+      error: "This spot is already linked to another account.",
+    });
+    expect((await getMember(holder.db, alex.id)).profileId).toBe(leader.id);
+  });
+});
+
+describe("unique member names", () => {
+  it("lets only one of two simultaneous joins take a name", async () => {
+    const results = await Promise.all([joinBand(band.slug, "Alex"), joinBand(band.slug, "alex")]);
+
+    expect(results.filter((r) => r.ok)).toHaveLength(1);
+    expect(results.find((r) => !r.ok)).toEqual({ ok: false, error: expect.stringMatching(/already goes by that name/) });
+    expect(await holder.db.select().from(bandMembers)).toHaveLength(1);
+  });
+
+  it("is enforced by the database, ignoring case", async () => {
+    await insertMember(holder.db, band.id, "Alex");
+    await expect(insertMember(holder.db, band.id, "ALEX")).rejects.toThrow();
+  });
+
+  it("migration 0009 renames existing duplicates before building the index", async () => {
+    const sqlText = readFileSync("src/db/migrations/0009_unique_member_names.sql", "utf8");
+    const [dedupe, createIndex] = sqlText.split("--> statement-breakpoint");
+    await holder.db.execute(sql.raw("DROP INDEX uq_band_members_band_name"));
+    const first = await insertMember(holder.db, band.id, "Alex");
+    const second = await insertMember(holder.db, band.id, "alex");
+
+    await holder.db.execute(sql.raw(dedupe));
+    await holder.db.execute(sql.raw(createIndex));
+
+    expect((await getMember(holder.db, first.id)).name).toBe("Alex");
+    expect((await getMember(holder.db, second.id)).name).toBe(`alex (${second.id.slice(0, 4)})`);
   });
 });

@@ -14,7 +14,7 @@ export async function createTestDb() {
 export type TestDb = Awaited<ReturnType<typeof createTestDb>>;
 
 export async function resetTestDb(db: TestDb) {
-  await db.execute(sql`TRUNCATE profiles, bands RESTART IDENTITY CASCADE`);
+  await db.execute(sql`TRUNCATE profiles, bands, rate_limits RESTART IDENTITY CASCADE`);
 }
 
 /** A profile that predates Clerk (like the seeded demo leader), owning `bandNames`. */

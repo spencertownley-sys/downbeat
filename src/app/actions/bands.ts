@@ -8,6 +8,7 @@ import { generateSlug } from "@/lib/slug";
 import { requireProfile, toActionError } from "./helpers";
 import { ValidationError, type ActionResult } from "@/lib/action-errors";
 import { validateSettings, type BandSettingsInput } from "@/lib/band-validation";
+import { LIMITS, dayLabel, labelDates } from "@/lib/schemas";
 import type { Band } from "@/types";
 
 export type { BandSettingsInput };
@@ -108,11 +109,17 @@ export async function addDayLabel(
 ): Promise<ActionResult> {
   try {
     const band = await requireLeaderBand(bandId);
-    const trimmed = label.trim();
-    if (!trimmed) throw new ValidationError("Give the label some text.");
-    if (!dates || dates.length === 0) throw new ValidationError("Pick at least one date.");
-    for (const d of dates) {
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) throw new ValidationError("Invalid date.");
+    if (typeof label !== "string" || !label.trim()) throw new ValidationError("Give the label some text.");
+    const parsedLabel = dayLabel.safeParse(label);
+    if (!parsedLabel.success) {
+      throw new ValidationError(`Keep the label under ${LIMITS.dayLabel} characters.`);
+    }
+    const trimmed = parsedLabel.data;
+    if (!Array.isArray(dates) || dates.length === 0) throw new ValidationError("Pick at least one date.");
+    const parsedDates = labelDates.safeParse(dates);
+    if (!parsedDates.success) throw new ValidationError("Invalid date.");
+    if (dates.some((d) => d < band.startDate || d > band.endDate)) {
+      throw new ValidationError("Pick dates inside the event's date range.");
     }
 
     await db

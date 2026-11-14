@@ -1,7 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { rotateMemberToken } from "@/app/actions/members";
+import { rememberMember } from "@/components/recovery/member-storage";
 import { CopyLinkButton } from "@/components/shared/CopyLinkButton";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/use-toast";
 
 export function PersonalLinkCard({
   slug,
@@ -23,6 +28,26 @@ export function PersonalLinkCard({
     }
   }, [slug, token, name]);
 
+  const router = useRouter();
+  const { toast } = useToast();
+  const [busy, setBusy] = useState(false);
+
+  async function handleNewLink() {
+    if (!window.confirm("Get a new personal link? Your current link stops working everywhere, including on your other devices.")) {
+      return;
+    }
+    setBusy(true);
+    const result = await rotateMemberToken(slug, token);
+    if (!result.ok || !result.data) {
+      setBusy(false);
+      toast({ title: "Couldn't make a new link", description: result.ok ? undefined : result.error, variant: "destructive" });
+      return;
+    }
+    rememberMember(slug, result.data.token, name);
+    toast({ title: "New link ready", description: "Your old link no longer works. Save this one." });
+    router.replace(`/a/${slug}/${result.data.token}`);
+  }
+
   return (
     <section className="rounded-xl border bg-card p-4 sm:p-6">
       <h2 className="mb-1 font-semibold">Your link</h2>
@@ -31,6 +56,12 @@ export function PersonalLinkCard({
         availability.
       </p>
       <CopyLinkButton path={`/a/${slug}/${token}`} />
+      <p className="mt-4 text-xs text-muted-foreground">
+        Shared this link by mistake? Get a new one and the old one stops working.
+      </p>
+      <Button type="button" size="sm" variant="ghost" className="mt-1 h-7 px-2 text-xs" onClick={handleNewLink} disabled={busy}>
+        {busy ? "Making a new link..." : "Get a new personal link"}
+      </Button>
     </section>
   );
 }

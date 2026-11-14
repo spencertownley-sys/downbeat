@@ -14,6 +14,17 @@ const withClerk = clerkMiddleware(
 );
 
 export function proxy(request: NextRequest, event: NextFetchEvent) {
+  // One canonical host. www served a duplicate site, and members who opened a
+  // www link got separate localStorage, so the app forgot who they were.
+  const host = request.headers.get("host") ?? "";
+  if (host.startsWith("www.")) {
+    const url = new URL(request.url);
+    url.host = host.slice(4);
+    url.protocol = "https:";
+    url.port = "";
+    return NextResponse.redirect(url, 308);
+  }
+
   if (isAuthConfigured()) return withClerk(request, event);
 
   // Without Clerk keys nobody can sign in. Locally that's fine (the dashboard

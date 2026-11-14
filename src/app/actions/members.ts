@@ -3,15 +3,18 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { bandMembers, bands } from "@/db/schema";
-import { and, eq, ilike, ne } from "drizzle-orm";
-import { toActionError } from "./helpers";
+import { and, count, eq, ilike, isNull, ne } from "drizzle-orm";
+import { requireProfile, toActionError } from "./helpers";
 import { ValidationError, type ActionResult } from "@/lib/action-errors";
 import { getCurrentProfile } from "@/lib/auth";
 import { isAuthConfigured } from "@/lib/auth-config";
 import { generateRecoveryCode, hashRecoveryCode } from "@/lib/recovery";
+import { MAX_MEMBERS_PER_BAND, rateLimitByIp } from "@/lib/rate-limit";
 
 const NAME_TAKEN =
   "Someone in this band already goes by that name. If that's you, get back in with your recovery code or passkey below, or ask your band leader for a rejoin link. Otherwise, add a last initial.";
+
+const ALREADY_LINKED = "This spot is already linked to another account.";
 
 function cleanOptional(value: string | undefined, maxLen: number): string | null {
   const trimmed = value?.trim();
@@ -42,8 +45,19 @@ export async function joinBand(
     const cleanInstrument = cleanOptional(instrument, 60);
     const cleanContact = cleanOptional(contact, 120);
 
+    await rateLimitByIp("join", slug);
     const band = await db.query.bands.findFirst({ where: eq(bands.slug, slug) });
     if (!band) throw new ValidationError("That link doesn't look right — check it and try again.");
+
+    const [{ members }] = await db
+      .select({ members: count() })
+      .from(bandMembers)
+      .where(eq(bandMembers.bandId, band.id));
+    if (members >= MAX_MEMBERS_PER_BAND) {
+      throw new ValidationError(
+        `This band already has ${MAX_MEMBERS_PER_BAND} members, the most one band can have. Ask your band leader.`
+      );
+    }
 
     if (await nameTaken(band.id, trimmed)) throw new ValidationError(NAME_TAKEN);
 
@@ -57,7 +71,12 @@ export async function joinBand(
         contact: cleanContact,
         recoveryCodeHash: hashRecoveryCode(recoveryCode),
       })
-      .returning();
+      .returning()
+      .catch((err: unknown) => {
+        // Someone took the name between the check above and this insert.
+        if (isNameTakenViolation(err)) throw new ValidationError(NAME_TAKEN);
+        throw err;
+      });
 
     return { ok: true, data: { token: member.memberToken, memberName: member.name, recoveryCode } };
   } catch (err) {
@@ -75,6 +94,17 @@ async function nameTaken(bandId: string, name: string, exceptMemberId?: string):
     ),
   });
   return !!existing;
+}
+
+/** A unique violation on uq_band_members_band_name, from postgres-js or PGlite, possibly wrapped by Drizzle. */
+function isNameTakenViolation(err: unknown): boolean {
+  for (let e = err as Record<string, unknown> | undefined, depth = 0; e && depth < 3; e = e.cause as typeof e, depth++) {
+    if (e.code === "23505") {
+      const constraint = e.constraint_name ?? e.constraint;
+      return constraint === undefined || constraint === "uq_band_members_band_name";
+    }
+  }
+  return false;
 }
 
 /** ilike treats % and _ as wildcards; match them literally. */
@@ -114,7 +144,13 @@ export async function updateMemberProfile(
         contact: cleanContact,
         lastSeenAt: new Date(),
       })
-      .where(eq(bandMembers.id, member.id));
+      .where(eq(bandMembers.id, member.id))
+      .catch((err: unknown) => {
+        if (isNameTakenViolation(err)) {
+          throw new ValidationError("Someone else in this band already goes by that name.");
+        }
+        throw err;
+      });
 
     revalidatePath(`/a/${slug}/${token}`);
     return { ok: true };
@@ -143,10 +179,87 @@ export async function claimMemberRow(slug: string, token: string): Promise<Actio
     });
     if (!member) throw new ValidationError("That link doesn't look right.");
 
-    await db.update(bandMembers).set({ profileId: profile.id }).where(eq(bandMembers.id, member.id));
+    if (member.profileId === profile.id) return { ok: true };
+    if (member.profileId) throw new ValidationError(ALREADY_LINKED);
+
+    // Only an unlinked spot can be claimed, so holding someone's link is not
+    // enough to move their spot onto another account.
+    const [claimed] = await db
+      .update(bandMembers)
+      .set({ profileId: profile.id })
+      .where(and(eq(bandMembers.id, member.id), isNull(bandMembers.profileId)))
+      .returning({ id: bandMembers.id });
+    if (!claimed) throw new ValidationError(ALREADY_LINKED);
 
     revalidatePath(`/a/${slug}/${token}`);
     return { ok: true };
+  } catch (err) {
+    return toActionError(err);
+  }
+}
+
+/** Band leader: removes a member and, through the cascade, their availability and passkeys. */
+export async function removeMember(bandId: string, memberId: string): Promise<ActionResult> {
+  try {
+    const profile = await requireProfile();
+    const band = await db.query.bands.findFirst({
+      where: and(eq(bands.id, bandId), eq(bands.leaderId, profile.id)),
+    });
+    if (!band) throw new ValidationError("Member not found.");
+
+    const [removed] = await db
+      .delete(bandMembers)
+      .where(and(eq(bandMembers.id, memberId), eq(bandMembers.bandId, band.id)))
+      .returning({ id: bandMembers.id });
+    if (!removed) throw new ValidationError("Member not found.");
+
+    revalidatePath("/dashboard");
+    revalidatePath(`/dashboard/bands/${bandId}`);
+    return { ok: true };
+  } catch (err) {
+    return toActionError(err);
+  }
+}
+
+/** A member leaves the band from their personal link, deleting their details and availability. */
+export async function leaveBand(slug: string, token: string): Promise<ActionResult> {
+  try {
+    const band = await db.query.bands.findFirst({ where: eq(bands.slug, slug) });
+    if (!band) throw new ValidationError("That link doesn't look right.");
+
+    const [removed] = await db
+      .delete(bandMembers)
+      .where(and(eq(bandMembers.memberToken, token), eq(bandMembers.bandId, band.id)))
+      .returning({ id: bandMembers.id });
+    if (!removed) throw new ValidationError("That link doesn't look right.");
+
+    revalidatePath("/dashboard");
+    revalidatePath(`/dashboard/bands/${band.id}`);
+    return { ok: true };
+  } catch (err) {
+    return toActionError(err);
+  }
+}
+
+/**
+ * Replaces a member's personal link with a new one, so a link that leaked
+ * (a forwarded message, a screenshot, browser history) stops working.
+ */
+export async function rotateMemberToken(slug: string, token: string): Promise<ActionResult<{ token: string }>> {
+  try {
+    const band = await db.query.bands.findFirst({ where: eq(bands.slug, slug) });
+    if (!band) throw new ValidationError("That link doesn't look right.");
+
+    const newToken = crypto.randomUUID();
+    const [updated] = await db
+      .update(bandMembers)
+      .set({ memberToken: newToken, lastSeenAt: new Date() })
+      .where(and(eq(bandMembers.memberToken, token), eq(bandMembers.bandId, band.id)))
+      .returning({ id: bandMembers.id });
+    if (!updated) throw new ValidationError("That link doesn't look right.");
+
+    revalidatePath(`/a/${slug}/${token}`);
+    return { ok: true, data: { token: newToken } };
   } catch (err) {
     return toActionError(err);
   }
