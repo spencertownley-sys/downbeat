@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { bandMembers, bands } from "@/db/schema";
-import { and, count, eq, ilike, ne } from "drizzle-orm";
+import { and, count, eq, ilike, isNull, ne } from "drizzle-orm";
 import { requireProfile, toActionError } from "./helpers";
 import { ValidationError, type ActionResult } from "@/lib/action-errors";
 import { getCurrentProfile } from "@/lib/auth";
@@ -13,6 +13,8 @@ import { MAX_MEMBERS_PER_BAND, rateLimitByIp } from "@/lib/rate-limit";
 
 const NAME_TAKEN =
   "Someone in this band already goes by that name. If that's you, get back in with your recovery code or passkey below, or ask your band leader for a rejoin link. Otherwise, add a last initial.";
+
+const ALREADY_LINKED = "This spot is already linked to another account.";
 
 function cleanOptional(value: string | undefined, maxLen: number): string | null {
   const trimmed = value?.trim();
@@ -155,7 +157,17 @@ export async function claimMemberRow(slug: string, token: string): Promise<Actio
     });
     if (!member) throw new ValidationError("That link doesn't look right.");
 
-    await db.update(bandMembers).set({ profileId: profile.id }).where(eq(bandMembers.id, member.id));
+    if (member.profileId === profile.id) return { ok: true };
+    if (member.profileId) throw new ValidationError(ALREADY_LINKED);
+
+    // Only an unlinked spot can be claimed, so holding someone's link is not
+    // enough to move their spot onto another account.
+    const [claimed] = await db
+      .update(bandMembers)
+      .set({ profileId: profile.id })
+      .where(and(eq(bandMembers.id, member.id), isNull(bandMembers.profileId)))
+      .returning({ id: bandMembers.id });
+    if (!claimed) throw new ValidationError(ALREADY_LINKED);
 
     revalidatePath(`/a/${slug}/${token}`);
     return { ok: true };

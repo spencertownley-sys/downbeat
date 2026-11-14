@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { bandMembers, rateLimits } from "@/db/schema";
+import { bandMembers, profiles, rateLimits } from "@/db/schema";
 import { createTestDb, getMember, insertBand, insertMember, insertPreClerkLeader, resetTestDb, type TestDb } from "@/test/db";
 
 const holder = vi.hoisted(() => ({ db: null as unknown as TestDb, profile: null as unknown, ip: "203.0.113.1" }));
@@ -11,8 +11,9 @@ vi.mock("@/db", () => ({
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/headers", () => ({ headers: async () => new Headers({ "x-forwarded-for": holder.ip }) }));
 vi.mock("@/lib/auth", () => ({ getCurrentProfile: async () => holder.profile }));
+vi.mock("@/lib/auth-config", () => ({ isAuthConfigured: () => true }));
 
-const { joinBand, leaveBand, removeMember, rotateMemberToken, updateMemberProfile } = await import("./members");
+const { claimMemberRow, joinBand, leaveBand, removeMember, rotateMemberToken, updateMemberProfile } = await import("./members");
 const { createMemberRejoinLink, newRecoveryCode, recoverMember, spendRejoinLink } = await import("./recovery");
 const { hashRecoveryCode } = await import("@/lib/recovery");
 
@@ -235,5 +236,31 @@ describe("rotateMemberToken", () => {
     expect((await getMember(holder.db, alex.id)).memberToken).toBe(result.data.token);
     expect((await rotateMemberToken(band.slug, alex.memberToken)).ok).toBe(false);
     expect((await updateMemberProfile(band.slug, alex.memberToken, { name: "Alex" })).ok).toBe(false);
+  });
+});
+
+describe("claimMemberRow", () => {
+  it("links an unlinked spot to the signed-in account, and is safe to repeat", async () => {
+    const alex = await insertMember(holder.db, band.id, "Alex");
+
+    expect(await claimMemberRow(band.slug, alex.memberToken)).toEqual({ ok: true });
+    expect(await claimMemberRow(band.slug, alex.memberToken)).toEqual({ ok: true });
+    expect((await getMember(holder.db, alex.id)).profileId).toBe(leader.id);
+  });
+
+  it("won't move a spot that is already linked to someone else's account", async () => {
+    const alex = await insertMember(holder.db, band.id, "Alex");
+    await claimMemberRow(band.slug, alex.memberToken);
+    const [intruder] = await holder.db
+      .insert(profiles)
+      .values({ id: crypto.randomUUID(), fullName: "Someone Else" })
+      .returning();
+    holder.profile = intruder;
+
+    expect(await claimMemberRow(band.slug, alex.memberToken)).toEqual({
+      ok: false,
+      error: "This spot is already linked to another account.",
+    });
+    expect((await getMember(holder.db, alex.id)).profileId).toBe(leader.id);
   });
 });
