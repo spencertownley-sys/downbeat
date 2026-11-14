@@ -15,6 +15,8 @@ import { KeepAccessCard } from "@/components/recovery/KeepAccessCard";
 import { PasskeyPrompt } from "@/components/recovery/PasskeyPrompt";
 import { countPasskeys } from "@/lib/passkeys";
 import { Button } from "@/components/ui/button";
+import { ConfirmActionButton } from "@/components/shared/ConfirmActionButton";
+import { leaveBand } from "@/app/actions/members";
 
 export const dynamic = "force-dynamic";
 
@@ -120,6 +122,24 @@ export default async function AvailabilityPage({
           timeSlots={timeSlots}
           grid={member.grid}
         />
+
+        <section className="mt-10 rounded-xl border p-4 sm:p-6">
+          <h2 className="font-semibold">Leave {band.name}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Deletes your name, contact details and availability from this event. Your link stops working.
+          </p>
+          <ConfirmActionButton
+            action={leaveBand.bind(null, slug, token)}
+            label="Leave this event"
+            className="mt-4"
+            title={`Leave ${band.name}?`}
+            description="Your details and availability are deleted for good. To come back you would join again from the invite link."
+            confirmLabel="Leave event"
+            pendingLabel="Leaving..."
+            redirectTo="/"
+            forgetMember={{ slug, token }}
+          />
+        </section>
       </main>
     </div>
   );

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { bandMembers, bands } from "@/db/schema";
 import { and, eq, ilike, ne } from "drizzle-orm";
-import { toActionError } from "./helpers";
+import { requireProfile, toActionError } from "./helpers";
 import { ValidationError, type ActionResult } from "@/lib/action-errors";
 import { getCurrentProfile } from "@/lib/auth";
 import { isAuthConfigured } from "@/lib/auth-config";
@@ -146,6 +146,49 @@ export async function claimMemberRow(slug: string, token: string): Promise<Actio
     await db.update(bandMembers).set({ profileId: profile.id }).where(eq(bandMembers.id, member.id));
 
     revalidatePath(`/a/${slug}/${token}`);
+    return { ok: true };
+  } catch (err) {
+    return toActionError(err);
+  }
+}
+
+/** Band leader: removes a member and, through the cascade, their availability and passkeys. */
+export async function removeMember(bandId: string, memberId: string): Promise<ActionResult> {
+  try {
+    const profile = await requireProfile();
+    const band = await db.query.bands.findFirst({
+      where: and(eq(bands.id, bandId), eq(bands.leaderId, profile.id)),
+    });
+    if (!band) throw new ValidationError("Member not found.");
+
+    const [removed] = await db
+      .delete(bandMembers)
+      .where(and(eq(bandMembers.id, memberId), eq(bandMembers.bandId, band.id)))
+      .returning({ id: bandMembers.id });
+    if (!removed) throw new ValidationError("Member not found.");
+
+    revalidatePath("/dashboard");
+    revalidatePath(`/dashboard/bands/${bandId}`);
+    return { ok: true };
+  } catch (err) {
+    return toActionError(err);
+  }
+}
+
+/** A member leaves the band from their personal link, deleting their details and availability. */
+export async function leaveBand(slug: string, token: string): Promise<ActionResult> {
+  try {
+    const band = await db.query.bands.findFirst({ where: eq(bands.slug, slug) });
+    if (!band) throw new ValidationError("That link doesn't look right.");
+
+    const [removed] = await db
+      .delete(bandMembers)
+      .where(and(eq(bandMembers.memberToken, token), eq(bandMembers.bandId, band.id)))
+      .returning({ id: bandMembers.id });
+    if (!removed) throw new ValidationError("That link doesn't look right.");
+
+    revalidatePath("/dashboard");
+    revalidatePath(`/dashboard/bands/${band.id}`);
     return { ok: true };
   } catch (err) {
     return toActionError(err);

@@ -11,7 +11,7 @@ vi.mock("@/db", () => ({
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ getCurrentProfile: async () => holder.profile }));
 
-const { joinBand, updateMemberProfile } = await import("./members");
+const { joinBand, leaveBand, removeMember, updateMemberProfile } = await import("./members");
 const { createMemberRejoinLink, newRecoveryCode, recoverMember, spendRejoinLink } = await import("./recovery");
 const { hashRecoveryCode } = await import("@/lib/recovery");
 
@@ -144,5 +144,35 @@ describe("recovery actions", () => {
     holder.profile = null;
 
     expect(await createMemberRejoinLink(band.id, alex.id)).toEqual({ ok: false, error: "You must be signed in." });
+  });
+});
+
+describe("removing members", () => {
+  it("lets the band's leader remove a member", async () => {
+    const alex = await insertMember(holder.db, band.id, "Alex");
+
+    expect(await removeMember(band.id, alex.id)).toEqual({ ok: true });
+    expect(await getMember(holder.db, alex.id)).toBeUndefined();
+  });
+
+  it("won't let another leader remove someone, even by pairing their own band", async () => {
+    const alex = await insertMember(holder.db, band.id, "Alex");
+    const strangersBand = await insertBand(holder.db, leader.id, "Stranger's Band");
+
+    holder.profile = { ...leader, id: crypto.randomUUID() };
+    expect((await removeMember(band.id, alex.id)).ok).toBe(false);
+    holder.profile = leader;
+    expect((await removeMember(strangersBand.id, alex.id)).ok).toBe(false);
+    expect(await getMember(holder.db, alex.id)).toBeDefined();
+  });
+
+  it("lets a member leave with their own link only", async () => {
+    const alex = await insertMember(holder.db, band.id, "Alex");
+    const jordan = await insertMember(holder.db, band.id, "Jordan");
+
+    expect((await leaveBand(band.slug, "00000000-0000-4000-8000-000000000000")).ok).toBe(false);
+    expect(await leaveBand(band.slug, alex.memberToken)).toEqual({ ok: true });
+    expect(await getMember(holder.db, alex.id)).toBeUndefined();
+    expect(await getMember(holder.db, jordan.id)).toBeDefined();
   });
 });
