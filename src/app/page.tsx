@@ -144,7 +144,7 @@ export default function LandingPage() {
               <p className="mt-2 text-4xl font-bold">$0</p>
               <p className="mt-1 text-sm text-muted-foreground">for your whole band, forever</p>
               <ul className="mt-6 space-y-2 text-sm text-muted-foreground">
-                <li>Unlimited bands and members</li>
+                <li>Unlimited bands, up to 50 members each</li>
                 <li>Weekly &amp; date-specific availability</li>
                 <li>One link — no logins for members</li>
               </ul>

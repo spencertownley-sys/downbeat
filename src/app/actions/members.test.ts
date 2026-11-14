@@ -1,14 +1,15 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { bandMembers } from "@/db/schema";
+import { bandMembers, rateLimits } from "@/db/schema";
 import { createTestDb, getMember, insertBand, insertMember, insertPreClerkLeader, resetTestDb, type TestDb } from "@/test/db";
 
-const holder = vi.hoisted(() => ({ db: null as unknown as TestDb, profile: null as unknown }));
+const holder = vi.hoisted(() => ({ db: null as unknown as TestDb, profile: null as unknown, ip: "203.0.113.1" }));
 vi.mock("@/db", () => ({
   get db() {
     return holder.db;
   },
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/headers", () => ({ headers: async () => new Headers({ "x-forwarded-for": holder.ip }) }));
 vi.mock("@/lib/auth", () => ({ getCurrentProfile: async () => holder.profile }));
 
 const { joinBand, leaveBand, removeMember, updateMemberProfile } = await import("./members");
@@ -27,6 +28,7 @@ beforeEach(async () => {
   leader = await insertPreClerkLeader(holder.db, []);
   band = await insertBand(holder.db, leader.id, "Basement Tapes");
   holder.profile = leader;
+  holder.ip = "203.0.113.1";
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
@@ -174,5 +176,50 @@ describe("removing members", () => {
     expect(await leaveBand(band.slug, alex.memberToken)).toEqual({ ok: true });
     expect(await getMember(holder.db, alex.id)).toBeUndefined();
     expect(await getMember(holder.db, jordan.id)).toBeDefined();
+  });
+});
+
+describe("rate limits", () => {
+  it("refuses the 11th join from one IP for one band within the hour", async () => {
+    for (let i = 1; i <= 10; i++) expect((await joinBand(band.slug, `Player ${i}`)).ok).toBe(true);
+
+    expect(await joinBand(band.slug, "Player 11")).toEqual({ ok: false, error: "Too many attempts. Try again later." });
+
+    // Another visitor, or the same visitor on another band, isn't affected.
+    holder.ip = "203.0.113.2";
+    expect((await joinBand(band.slug, "Player 11")).ok).toBe(true);
+    holder.ip = "203.0.113.1";
+    const other = await insertBand(holder.db, leader.id, "Other Band");
+    expect((await joinBand(other.slug, "Player 1")).ok).toBe(true);
+  });
+
+  it("starts counting again once the window has passed", async () => {
+    for (let i = 1; i <= 10; i++) await joinBand(band.slug, `Player ${i}`);
+    await holder.db.update(rateLimits).set({ windowStart: new Date(Date.now() - 2 * 60 * 60 * 1000) });
+
+    expect((await joinBand(band.slug, "Player 11")).ok).toBe(true);
+  });
+
+  it("stores no raw IP address", async () => {
+    await joinBand(band.slug, "Alex");
+    const rows = await holder.db.select().from(rateLimits);
+    expect(rows.length).toBeGreaterThan(0);
+    expect(JSON.stringify(rows)).not.toContain("203.0.113.1");
+  });
+
+  it("limits recovery code guesses", async () => {
+    for (let i = 0; i < 10; i++) await recoverMember(band.slug, "AAAA-BBBB-CCCC");
+    expect(await recoverMember(band.slug, "AAAA-BBBB-CCCC")).toEqual({
+      ok: false,
+      error: "Too many attempts. Try again later.",
+    });
+  });
+
+  it("refuses the 51st member of a band", async () => {
+    for (let i = 1; i <= 50; i++) await insertMember(holder.db, band.id, `Member ${i}`);
+
+    const result = await joinBand(band.slug, "One Too Many");
+    expect(result).toEqual({ ok: false, error: expect.stringMatching(/50 members/) });
+    expect(await holder.db.select().from(bandMembers)).toHaveLength(50);
   });
 });

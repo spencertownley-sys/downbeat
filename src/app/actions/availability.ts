@@ -7,6 +7,7 @@ import { availability, bandMembers, bands } from "@/db/schema";
 import { AVAILABILITY_STATUSES, type AvailabilityStatus } from "@/lib/constants";
 import { toActionError } from "./helpers";
 import { ValidationError, type ActionResult } from "@/lib/action-errors";
+import { rateLimit } from "@/lib/rate-limit";
 
 export interface AvailabilityUpdate {
   date: string; // yyyy-MM-dd
@@ -34,6 +35,7 @@ export async function setAvailabilityBulk(
   try {
     const member = await requireMember(slug, token);
     if (!updates || updates.length === 0) return { ok: true };
+    await rateLimit("availability", `member:${member.id}`);
 
     for (const u of updates) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(u.date)) throw new ValidationError("Invalid date.");

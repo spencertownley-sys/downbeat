@@ -19,6 +19,7 @@ import {
   startPasskeyRegistration,
   startPasskeySignIn,
 } from "@/lib/passkeys";
+import { rateLimit, rateLimitByIp } from "@/lib/rate-limit";
 
 async function relyingParty() {
   const h = await headers();
@@ -52,6 +53,7 @@ export async function passkeyRegistrationOptions(
 ): Promise<ActionResult<PublicKeyCredentialCreationOptionsJSON>> {
   try {
     const { member, bandName } = await requireMember(slug, token);
+    await rateLimit("passkey", `member:${member.id}`);
     return { ok: true, data: await startPasskeyRegistration(member, bandName, await relyingParty()) };
   } catch (err) {
     return toActionError(err);
@@ -76,6 +78,7 @@ export async function passkeySignInOptions(
   slug: string
 ): Promise<ActionResult<PublicKeyCredentialRequestOptionsJSON>> {
   try {
+    await rateLimitByIp("passkey");
     const band = await requireBand(slug);
     return { ok: true, data: await startPasskeySignIn(band.id, await relyingParty()) };
   } catch (err) {

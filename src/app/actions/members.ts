@@ -3,12 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { bandMembers, bands } from "@/db/schema";
-import { and, eq, ilike, ne } from "drizzle-orm";
+import { and, count, eq, ilike, ne } from "drizzle-orm";
 import { requireProfile, toActionError } from "./helpers";
 import { ValidationError, type ActionResult } from "@/lib/action-errors";
 import { getCurrentProfile } from "@/lib/auth";
 import { isAuthConfigured } from "@/lib/auth-config";
 import { generateRecoveryCode, hashRecoveryCode } from "@/lib/recovery";
+import { MAX_MEMBERS_PER_BAND, rateLimitByIp } from "@/lib/rate-limit";
 
 const NAME_TAKEN =
   "Someone in this band already goes by that name. If that's you, get back in with your recovery code or passkey below, or ask your band leader for a rejoin link. Otherwise, add a last initial.";
@@ -42,8 +43,19 @@ export async function joinBand(
     const cleanInstrument = cleanOptional(instrument, 60);
     const cleanContact = cleanOptional(contact, 120);
 
+    await rateLimitByIp("join", slug);
     const band = await db.query.bands.findFirst({ where: eq(bands.slug, slug) });
     if (!band) throw new ValidationError("That link doesn't look right — check it and try again.");
+
+    const [{ members }] = await db
+      .select({ members: count() })
+      .from(bandMembers)
+      .where(eq(bandMembers.bandId, band.id));
+    if (members >= MAX_MEMBERS_PER_BAND) {
+      throw new ValidationError(
+        `This band already has ${MAX_MEMBERS_PER_BAND} members, the most one band can have. Ask your band leader.`
+      );
+    }
 
     if (await nameTaken(band.id, trimmed)) throw new ValidationError(NAME_TAKEN);
 

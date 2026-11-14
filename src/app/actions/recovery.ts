@@ -13,6 +13,7 @@ import {
   type Reclaimed,
   type RejoinLinkProblem,
 } from "@/lib/recovery";
+import { rateLimitByIp } from "@/lib/rate-limit";
 
 const LINK_PROBLEMS: Record<RejoinLinkProblem, string> = {
   invalid: "This rejoin link isn't valid. It may have been replaced by a newer one.",
@@ -23,6 +24,7 @@ const LINK_PROBLEMS: Record<RejoinLinkProblem, string> = {
 /** A member on a new device enters their recovery code to get their spot back. */
 export async function recoverMember(slug: string, code: string): Promise<ActionResult<Reclaimed>> {
   try {
+    await rateLimitByIp("recover", slug);
     const reclaimed = await recoverWithCode(slug, code);
     if (!reclaimed) {
       throw new ValidationError("That code doesn't match anyone in this band. Check it and try again.");
@@ -36,6 +38,7 @@ export async function recoverMember(slug: string, code: string): Promise<ActionR
 /** Spends a rejoin link (from the button on /rejoin/[token], never on page load). */
 export async function spendRejoinLink(token: string): Promise<ActionResult<Reclaimed>> {
   try {
+    await rateLimitByIp("rejoin");
     const result = await redeemRejoinLink(token);
     if (!result.ok) throw new ValidationError(LINK_PROBLEMS[result.reason]);
     const { slug, token: newToken, memberName, recoveryCode } = result;

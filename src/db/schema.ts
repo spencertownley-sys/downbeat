@@ -174,6 +174,17 @@ export const webauthnChallenges = pgTable("webauthn_challenges", {
 });
 
 // ---------------------------------------------------------------------------
+// rate_limits — fixed-window counters for public actions (joining, recovery,
+// passkey sign-in). `key` is a SHA-256 of action, scope and client IP, so no
+// raw IP address is stored. Rows older than a day are deleted.
+// ---------------------------------------------------------------------------
+export const rateLimits = pgTable("rate_limits", {
+  key: text("key").primaryKey(),
+  count: integer("count").notNull(),
+  windowStart: timestamp("window_start", { withTimezone: true }).notNull(),
+});
+
+// ---------------------------------------------------------------------------
 // availability — one row per (member, calendar date, time slot). Missing
 // row = unfilled (member hasn't responded yet). `time_slot` is "HH:MM", or
 // the ALL_DAY_SLOT sentinel for date-only bands.
