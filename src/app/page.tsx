@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/brand/Logo";
 import { LandingGridPreview } from "@/components/marketing/LandingGridPreview";
+import { SiteFooter } from "@/components/marketing/SiteFooter";
 import {
   CalendarCheck,
   Link2,
@@ -155,12 +156,7 @@ export default function LandingPage() {
         </section>
       </main>
 
-      <footer className="border-t py-10">
-        <div className="container flex flex-col items-center justify-between gap-4 text-sm text-muted-foreground sm:flex-row">
-          <Logo />
-          <p>&copy; {new Date().getFullYear()} Downbeat. Made for bands with busy lives.</p>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

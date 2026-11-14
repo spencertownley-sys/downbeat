@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { SignIn } from "@clerk/nextjs";
 import { AuthUnavailable } from "@/components/auth/AuthUnavailable";
 import { isAuthConfigured } from "@/lib/auth-config";
@@ -15,6 +16,15 @@ export default function LoginPage() {
       <p className="max-w-sm text-center text-xs text-muted-foreground">
         Just here to enter your availability? You don&apos;t need an account — use the link your
         band leader sent you.
+      </p>
+      <p className="text-xs text-muted-foreground">
+        <Link href="/privacy" className="underline underline-offset-2 hover:text-foreground">
+          Privacy
+        </Link>
+        {" · "}
+        <Link href="/terms" className="underline underline-offset-2 hover:text-foreground">
+          Terms
+        </Link>
       </p>
     </div>
   );

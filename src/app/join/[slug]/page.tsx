@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getBandBySlug } from "@/db/queries/bands";
 import { JoinForm } from "@/components/join/JoinForm";
@@ -29,6 +30,11 @@ export default async function JoinPage({ params }: { params: Promise<{ slug: str
           <JoinForm slug={slug} />
         </CardContent>
       </Card>
+      <p className="mt-4 text-xs text-muted-foreground">
+        <Link href="/privacy" className="underline underline-offset-2 hover:text-foreground">
+          Privacy
+        </Link>
+      </p>
     </div>
   );
 }
