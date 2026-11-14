@@ -33,6 +33,16 @@ export function relyingPartyFor(host: string, protocol: string, rpIdOverride?: s
   return { rpID, origins: [`${protocol}://${host}`] };
 }
 
+/**
+ * The relying party for a fixed, configured origin such as
+ * "https://trydownbeat.app". Production uses this so passkey checks never
+ * depend on Host or X-Forwarded-Proto headers a client could influence.
+ */
+export function relyingPartyForOrigin(origin: string, rpIdOverride?: string): RelyingParty {
+  const url = new URL(origin);
+  return relyingPartyFor(url.host, url.protocol.replace(/:$/, ""), rpIdOverride);
+}
+
 type Member = typeof bandMembers.$inferSelect;
 type Purpose = "register" | "authenticate";
 
@@ -94,7 +104,7 @@ export async function startPasskeyRegistration(member: Member, bandName: string,
     userID: new TextEncoder().encode(member.id),
     attestationType: "none",
     excludeCredentials: existing.map((c) => ({ id: c.id, transports: c.transports ?? undefined })),
-    authenticatorSelection: { residentKey: "required", userVerification: "preferred" },
+    authenticatorSelection: { residentKey: "required", userVerification: "required" },
   });
   await saveChallenge(options.challenge, "register", { memberId: member.id });
   return options;
@@ -113,7 +123,7 @@ export async function finishPasskeyRegistration(
     expectedChallenge,
     expectedOrigin: rp.origins,
     expectedRPID: rp.rpID,
-    requireUserVerification: false,
+    requireUserVerification: true,
   }).catch(() => ({ verified: false as const }));
   if (!verification.verified) throw new ValidationError("Your device couldn't save that passkey.");
 
@@ -132,7 +142,7 @@ export async function finishPasskeyRegistration(
 
 /** Options for signing in to a band with a saved passkey (the browser offers its own list). */
 export async function startPasskeySignIn(bandId: string, rp: RelyingParty) {
-  const options = await generateAuthenticationOptions({ rpID: rp.rpID, userVerification: "preferred" });
+  const options = await generateAuthenticationOptions({ rpID: rp.rpID, userVerification: "required" });
   await saveChallenge(options.challenge, "authenticate", { bandId });
   return options;
 }
@@ -171,7 +181,7 @@ export async function finishPasskeySignIn(
       counter: row.passkey.counter,
       transports: row.passkey.transports ?? undefined,
     },
-    requireUserVerification: false,
+    requireUserVerification: true,
   }).catch(() => ({ verified: false as const, authenticationInfo: null }));
   if (!verification.verified) throw new ValidationError("That passkey couldn't be verified.");
 

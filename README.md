@@ -134,5 +134,8 @@ src/
   never returns that member's link; it points to the recovery options above.
 - **Recovery secrets are stored hashed**: only SHA-256 hashes of recovery
   codes and rejoin-link tokens are kept. Passkeys (WebAuthn, via
-  SimpleWebAuthn) are bound to the site's domain without `www.`; set
-  `WEBAUTHN_RP_ID` to pin it explicitly.
+  SimpleWebAuthn) are bound to the site's domain without `www.`, and
+  require user verification (a PIN, fingerprint or face). In production set
+  `WEBAUTHN_ORIGIN` (e.g. `https://trydownbeat.app`) and `WEBAUTHN_RP_ID`
+  (e.g. `trydownbeat.app`); the origin is then never read from request
+  headers. Locally the request's host is used.

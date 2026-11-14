@@ -16,12 +16,23 @@ import {
   finishPasskeyRegistration,
   finishPasskeySignIn,
   relyingPartyFor,
+  relyingPartyForOrigin,
   startPasskeyRegistration,
   startPasskeySignIn,
 } from "@/lib/passkeys";
 import { rateLimit, rateLimitByIp } from "@/lib/rate-limit";
 
+/**
+ * In production the origin comes from WEBAUTHN_ORIGIN (or the app's public
+ * URL), never from request headers. Locally, where the host varies, it is
+ * read from the request.
+ */
 async function relyingParty() {
+  const production = process.env.NODE_ENV === "production";
+  const origin = process.env.WEBAUTHN_ORIGIN || (production ? process.env.NEXT_PUBLIC_APP_URL : undefined);
+  if (origin) return relyingPartyForOrigin(origin, process.env.WEBAUTHN_RP_ID);
+  if (production) throw new Error("Set WEBAUTHN_ORIGIN to use passkeys in production.");
+
   const h = await headers();
   const host = h.get("host");
   if (!host) throw new Error("Request has no Host header.");
