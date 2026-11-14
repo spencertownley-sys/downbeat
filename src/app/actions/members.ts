@@ -71,7 +71,12 @@ export async function joinBand(
         contact: cleanContact,
         recoveryCodeHash: hashRecoveryCode(recoveryCode),
       })
-      .returning();
+      .returning()
+      .catch((err: unknown) => {
+        // Someone took the name between the check above and this insert.
+        if (isNameTakenViolation(err)) throw new ValidationError(NAME_TAKEN);
+        throw err;
+      });
 
     return { ok: true, data: { token: member.memberToken, memberName: member.name, recoveryCode } };
   } catch (err) {
@@ -89,6 +94,17 @@ async function nameTaken(bandId: string, name: string, exceptMemberId?: string):
     ),
   });
   return !!existing;
+}
+
+/** A unique violation on uq_band_members_band_name, from postgres-js or PGlite, possibly wrapped by Drizzle. */
+function isNameTakenViolation(err: unknown): boolean {
+  for (let e = err as Record<string, unknown> | undefined, depth = 0; e && depth < 3; e = e.cause as typeof e, depth++) {
+    if (e.code === "23505") {
+      const constraint = e.constraint_name ?? e.constraint;
+      return constraint === undefined || constraint === "uq_band_members_band_name";
+    }
+  }
+  return false;
 }
 
 /** ilike treats % and _ as wildcards; match them literally. */
@@ -128,7 +144,13 @@ export async function updateMemberProfile(
         contact: cleanContact,
         lastSeenAt: new Date(),
       })
-      .where(eq(bandMembers.id, member.id));
+      .where(eq(bandMembers.id, member.id))
+      .catch((err: unknown) => {
+        if (isNameTakenViolation(err)) {
+          throw new ValidationError("Someone else in this band already goes by that name.");
+        }
+        throw err;
+      });
 
     revalidatePath(`/a/${slug}/${token}`);
     return { ok: true };

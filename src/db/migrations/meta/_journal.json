@@ -64,6 +64,13 @@
       "when": 1794664908381,
       "tag": "0008_rate_limits",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794665600814,
+      "tag": "0009_unique_member_names",
+      "breakpoints": true
     }
   ]
 }

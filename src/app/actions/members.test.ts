@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { sql } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { bandMembers, profiles, rateLimits } from "@/db/schema";
 import { createTestDb, getMember, insertBand, insertMember, insertPreClerkLeader, resetTestDb, type TestDb } from "@/test/db";
@@ -262,5 +264,34 @@ describe("claimMemberRow", () => {
       error: "This spot is already linked to another account.",
     });
     expect((await getMember(holder.db, alex.id)).profileId).toBe(leader.id);
+  });
+});
+
+describe("unique member names", () => {
+  it("lets only one of two simultaneous joins take a name", async () => {
+    const results = await Promise.all([joinBand(band.slug, "Alex"), joinBand(band.slug, "alex")]);
+
+    expect(results.filter((r) => r.ok)).toHaveLength(1);
+    expect(results.find((r) => !r.ok)).toEqual({ ok: false, error: expect.stringMatching(/already goes by that name/) });
+    expect(await holder.db.select().from(bandMembers)).toHaveLength(1);
+  });
+
+  it("is enforced by the database, ignoring case", async () => {
+    await insertMember(holder.db, band.id, "Alex");
+    await expect(insertMember(holder.db, band.id, "ALEX")).rejects.toThrow();
+  });
+
+  it("migration 0009 renames existing duplicates before building the index", async () => {
+    const sqlText = readFileSync("src/db/migrations/0009_unique_member_names.sql", "utf8");
+    const [dedupe, createIndex] = sqlText.split("--> statement-breakpoint");
+    await holder.db.execute(sql.raw("DROP INDEX uq_band_members_band_name"));
+    const first = await insertMember(holder.db, band.id, "Alex");
+    const second = await insertMember(holder.db, band.id, "alex");
+
+    await holder.db.execute(sql.raw(dedupe));
+    await holder.db.execute(sql.raw(createIndex));
+
+    expect((await getMember(holder.db, first.id)).name).toBe("Alex");
+    expect((await getMember(holder.db, second.id)).name).toBe(`alex (${second.id.slice(0, 4)})`);
   });
 });

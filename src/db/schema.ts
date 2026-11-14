@@ -7,6 +7,7 @@ import {
   timestamp,
   index,
   unique,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 
@@ -113,6 +114,9 @@ export const bandMembers = pgTable(
     bandIdx: index("idx_band_members_band").on(table.bandId),
     tokenIdx: index("idx_band_members_token").on(table.memberToken),
     profileIdx: index("idx_band_members_profile").on(table.profileId),
+    // Names are unique per band, ignoring case; the database enforces it so
+    // two simultaneous joins can't both take the same name.
+    bandNameUnique: uniqueIndex("uq_band_members_band_name").on(table.bandId, sql`lower(${table.name})`),
   })
 );
 
