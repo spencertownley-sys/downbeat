@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getMemberByToken } from "@/db/queries/members";
 import { getBandBySlug } from "@/db/queries/bands";
@@ -17,6 +18,11 @@ import { countPasskeys } from "@/lib/passkeys";
 import { Button } from "@/components/ui/button";
 import { ConfirmActionButton } from "@/components/shared/ConfirmActionButton";
 import { leaveBand } from "@/app/actions/members";
+
+export const metadata: Metadata = {
+  // Personal and invite links are credentials: keep them out of search results.
+  robots: { index: false, follow: false },
+};
 
 export const dynamic = "force-dynamic";
 

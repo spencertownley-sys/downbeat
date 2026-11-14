@@ -206,3 +206,27 @@ export async function leaveBand(slug: string, token: string): Promise<ActionResu
     return toActionError(err);
   }
 }
+
+/**
+ * Replaces a member's personal link with a new one, so a link that leaked
+ * (a forwarded message, a screenshot, browser history) stops working.
+ */
+export async function rotateMemberToken(slug: string, token: string): Promise<ActionResult<{ token: string }>> {
+  try {
+    const band = await db.query.bands.findFirst({ where: eq(bands.slug, slug) });
+    if (!band) throw new ValidationError("That link doesn't look right.");
+
+    const newToken = crypto.randomUUID();
+    const [updated] = await db
+      .update(bandMembers)
+      .set({ memberToken: newToken, lastSeenAt: new Date() })
+      .where(and(eq(bandMembers.memberToken, token), eq(bandMembers.bandId, band.id)))
+      .returning({ id: bandMembers.id });
+    if (!updated) throw new ValidationError("That link doesn't look right.");
+
+    revalidatePath(`/a/${slug}/${token}`);
+    return { ok: true, data: { token: newToken } };
+  } catch (err) {
+    return toActionError(err);
+  }
+}

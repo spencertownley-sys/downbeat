@@ -12,7 +12,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/headers", () => ({ headers: async () => new Headers({ "x-forwarded-for": holder.ip }) }));
 vi.mock("@/lib/auth", () => ({ getCurrentProfile: async () => holder.profile }));
 
-const { joinBand, leaveBand, removeMember, updateMemberProfile } = await import("./members");
+const { joinBand, leaveBand, removeMember, rotateMemberToken, updateMemberProfile } = await import("./members");
 const { createMemberRejoinLink, newRecoveryCode, recoverMember, spendRejoinLink } = await import("./recovery");
 const { hashRecoveryCode } = await import("@/lib/recovery");
 
@@ -221,5 +221,19 @@ describe("rate limits", () => {
     const result = await joinBand(band.slug, "One Too Many");
     expect(result).toEqual({ ok: false, error: expect.stringMatching(/50 members/) });
     expect(await holder.db.select().from(bandMembers)).toHaveLength(50);
+  });
+});
+
+describe("rotateMemberToken", () => {
+  it("gives the member a new link and the old one stops working", async () => {
+    const alex = await insertMember(holder.db, band.id, "Alex");
+
+    const result = await rotateMemberToken(band.slug, alex.memberToken);
+    if (!result.ok || !result.data) throw new Error("expected a new token");
+
+    expect(result.data.token).not.toBe(alex.memberToken);
+    expect((await getMember(holder.db, alex.id)).memberToken).toBe(result.data.token);
+    expect((await rotateMemberToken(band.slug, alex.memberToken)).ok).toBe(false);
+    expect((await updateMemberProfile(band.slug, alex.memberToken, { name: "Alex" })).ok).toBe(false);
   });
 });

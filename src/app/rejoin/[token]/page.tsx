@@ -1,7 +1,13 @@
+import type { Metadata } from "next";
 import { getRejoinLinkStatus } from "@/lib/recovery";
 import { Logo } from "@/components/brand/Logo";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { RejoinConfirm } from "@/components/join/RejoinConfirm";
+
+export const metadata: Metadata = {
+  // Personal and invite links are credentials: keep them out of search results.
+  robots: { index: false, follow: false },
+};
 
 export const dynamic = "force-dynamic";
 

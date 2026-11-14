@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getBandBySlug } from "@/db/queries/bands";
@@ -5,6 +6,11 @@ import { JoinForm } from "@/components/join/JoinForm";
 import { Logo } from "@/components/brand/Logo";
 import { describeEvent } from "@/lib/band-settings";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+
+export const metadata: Metadata = {
+  // Personal and invite links are credentials: keep them out of search results.
+  robots: { index: false, follow: false },
+};
 
 export const dynamic = "force-dynamic";
 
